@@ -7,13 +7,13 @@ I approached the object detection as a concept by trying to detect character mod
 in a classic game of Counter-Strike 1.6. Most of the image processing is done with 
 opencv.
 
-##Strategy:
-*Filtering and thresholding
-*Analysing contours
-*Matching features
-*Matching color space
+## Strategy:
+* Filtering and thresholding
+* Analysing contours
+* Matching features
+* Matching color space
 
-##Tests
+## Tests
 ![Test 1](/images/test/test1.jpg)
 In a simple situations the detection works fine.
 
