@@ -1,12 +1,15 @@
 import math
 import os
-import sys
 from time import time
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import ImageGrab
+
+from utils import norm
+from grabscreen import grab_screen
+from templates import make_templates, analyze_templates
 
 # initialises fastfeaturedetector to get initial points of interests
 fast = cv2.FastFeatureDetector_create(threshold=50, nonmaxSuppression=50)
@@ -17,36 +20,6 @@ br = cv2.BRISK_create()
 
 # BruteForce matcher to compare matches
 bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-
-
-def normalize_image(img):
-    """
-    Normalizes the BGR image
-
-    :param img: image that we want to normalize (needs to be bgr format)
-    :return: normalized bgr image
-    """
-    # creates two identical empty pictures
-    norm = np.zeros(img.shape, dtype=np.float32)
-    norm_bgr = np.zeros(img.shape, dtype=np.uint8)
-
-    # reads the b g r values from rgb picture
-    b = img[:,:,0]
-    g = img[:,:,1]
-    r = img[:,:,2]
-
-    # counts the total value
-    total = r + g + b
-
-    # normalizes every value and sets values based on example: r' = r/total * 255.0
-    np.seterr(divide='ignore', invalid='ignore')
-    norm[:,:,0] = b/total * 255.0
-    norm[:,:,1] = g/total * 255.0
-    norm[:,:,2] = r/total * 255.0
-    
-    norm_bgr = cv2.convertScaleAbs(norm)
-
-    return norm_bgr
 
 
 def detection(contours, img, text):
@@ -65,74 +38,6 @@ def detection(contours, img, text):
         font = cv2.FONT_HERSHEY_SIMPLEX
         cv2.putText(img, text, (x-5,y-5), font, 0.9, (255,255,52), 1)
         #print('{} detected at ({:.1f},{:.1f})'.format(text,x,y))
-
-def make_templates(path):
-    
-    templates = {}
-    
-    for x in os.listdir(path):
-        
-        # reads the original RGB template image
-        original = cv2.imread(path + x, 1)
-        # normalises the image
-        model_img = normalize_image(original)
-        # makes a grayscale image
-        model_gray = cv2.cvtColor(model_img,cv2.COLOR_BGR2GRAY)
-        # makes a rough mask of the image
-        model_mask = cv2.inRange(model_gray, 0, 100)
-        # fills the mask with gray image
-        masked = cv2.bitwise_and(model_gray, model_mask)
-        # takes the outer edges of the mask with gradient morph
-        kernel = np.ones((3,3),np.uint8)
-        gradient = cv2.morphologyEx(model_mask, cv2.MORPH_GRADIENT, kernel)
-        # makes a data set of template_name : [images] for further usage
-        templates[x.split(".")[0]] = [masked, model_mask, model_gray, gradient, model_img, original]
-
-    return templates
-
-
-def analyze_templates(templates):
-
-    data = {}
-    for template in templates:
-        sub_data = {}
-
-        # saves the templates descriptors
-        kp = fast.detect(templates[template][0], None)
-        kp, des = br.compute(templates[template][0], kp)
-        sub_data['des'] = des
-
-        bw2, contours, hierarchy = cv2.findContours(templates[template][3], 
-                                                    cv2.RETR_EXTERNAL, 
-                                                    cv2.CHAIN_APPROX_NONE)
-        # sometimes we might encounter small areas that are not part of the mask so we delete them.
-        for count, cnt in enumerate(contours):
-            if len(cnt) < 20:
-                del contours[count]
-
-        # saves the contour data
-        cnt = contours[0]
-        sub_data['cnt'] = cnt
-
-        x,y,w,h = cv2.boundingRect(cnt)
-        
-        # aspect ratio for further use        
-        aspect_ratio = float(w)/h
-        sub_data['ar'] = aspect_ratio
-
-        # checks the average color of the object
-        mean_val = cv2.mean(templates[template][4],mask = templates[template][1])
-        sub_data['mv'] = mean_val
-        
-        # Centroid, (Major Axis, minor axis), orientation
-        # saves the angle for further use
-        (x, y), (maxa, mina), angle = cv2.fitEllipse(cnt)
-        sub_data['angle'] = angle
-        
-        # adds all data of the contour to the dataset
-        data[template] = sub_data
-    
-    return data
 
 
 def contour_analyse(bw,img,gray,norm_img):
@@ -181,6 +86,7 @@ def contour_analyse(bw,img,gray,norm_img):
                 max_euclidean= math.sqrt(195075)
 
                 if len(kp) > 35:
+                    
                     for template in templates_data:
                         # fetch the wanted data from template data
                         angle_ = templates_data[template]['angle']
@@ -249,20 +155,6 @@ def contour_analyse(bw,img,gray,norm_img):
                         # all the other contours will be ignored.
 
 
-def roi(img, vertices):
-    """
-    Masks the image according to vertices and creates the sort of "Region of interest"
-
-    :param img: image we fill the region with
-    :param vertices: points that determine the region of interest
-    :return: masked image 
-    """
-    mask = np.zeros_like(img)
-    mask = cv2.fillPoly(mask,np.int32([vertices]),255)
-    
-    return cv2.bitwise_and(img,mask)
-
-
 def process_image(original,type):
     """
     Process the RGB image to filter out the background and detect the models
@@ -276,13 +168,14 @@ def process_image(original,type):
     img = cv2.cvtColor(original,cv2.COLOR_RGB2BGR)
     
     # normalizes the screen imgae
-    norm_img = normalize_image(img)
+    norm_img = norm.normalize_image(img)
 
     # grayscale is used in all other analysis
     grayscale = cv2.cvtColor(norm_img, cv2.COLOR_RGB2GRAY)
 
     # makes a rough estimation if the image is dark or light
     img_mean = cv2.mean(grayscale)
+    
     # the case if the image is lighter
     if img_mean[0] > 120:
         
@@ -344,17 +237,6 @@ def process_image(original,type):
         return eval(type)
 
 
-def examples():
-    
-    example_path = './images/examples/'
-    for file in os.listdir(example_path):
-
-        img = cv2.cvtColor(cv2.imread(example_path + file,1),cv2.COLOR_BGR2RGB)
-        plt.imshow(cv2.cvtColor((process_image(img,'img')),cv2.COLOR_BGR2RGB))
-        plt.title(file.split('.')[0])
-        plt.show()
-
-
 def main():
     """
     Main function of the aimbot.py - captures the screen of the size 800x600 in
@@ -364,38 +246,37 @@ def main():
     # disgusting global variables.
     global ct_models
     global templates_data
-    
+
     # initialize the data of the templates
     ct_models = make_templates('images/templates/CT/')
     templates_data = analyze_templates(ct_models)
-    
+
     print('Hello there!\n')
     while True:
         available = {'norm':'norm_img','gray':'grayscale',
                     'blur':'blur_','morph':'opening_',
-                    '1 mask':'mask','masked':'masked_',
-                    '2 mask':'erode','full':'img'}
+                    '1_mask':'mask','masked':'masked_',
+                    '2_mask':'erode','full':'img'}
         
         mode = input('Enter mode: ')
 
         try:
             start = time()
             t = []
-            
+
             if mode == "":
                 print('Goodbye!')
                 break
-            elif mode == '!examples':
-                examples()
+            elif mode == '!video':
+                video()
                 continue
             else:
                 output = available[mode]
-            
-            while True:
-                
-                # captures the screen.
-                screen = np.array(ImageGrab.grab(bbox=(0,27,800,627)))
 
+            while True:
+
+                # captures the screen.
+                screen = grab_screen(region=(0,27,800,627))
                 # process the screen.
                 new_screen = process_image(screen,output)
 
