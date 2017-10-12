@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 
 from utils import norm
-from utils import regionprobs
+import regionprobs as rp
 
 
 # initialises fastfeaturedetector to get initial points of interests
@@ -54,32 +54,23 @@ def analyze_templates(templates):
         kp, des = br.compute(templates[template][0], kp)
         sub_data['des'] = des
 
-        bw2, contours, hierarchy = cv2.findContours(templates[template][3], 
-                                                    cv2.RETR_EXTERNAL, 
-                                                    cv2.CHAIN_APPROX_NONE)
-        # sometimes we might encounter small areas that are not part of the mask so we delete them.
-        for count, cnt in enumerate(contours):
-            if len(cnt) < 20:
-                del contours[count]
-
-        # saves the contour data
-        cnt = contours[0]
-        sub_data['cnt'] = cnt
-
-        x,y,w,h = cv2.boundingRect(cnt)
+        stats = rp.RegionProbs(templates[template][3],mode='outer_full')
         
-        # aspect ratio for further use        
-        aspect_ratio = float(w)/h
-        sub_data['ar'] = aspect_ratio
+        if len(stats.get_properties()) > 1:
+            print('Error in the template')
+
+        stats = stats.get_properties()[0]
+        # saves the contour data
+        sub_data['cnt'] = stats.cnt
+        
+        sub_data['ar'] = stats.aspect_ratio
+        
 
         # checks the average color of the object
         mean_val = cv2.mean(templates[template][4],mask = templates[template][1])
         sub_data['mv'] = mean_val
         
-        # Centroid, (Major Axis, minor axis), orientation
-        # saves the angle for further use
-        (x, y), (maxa, mina), angle = cv2.fitEllipse(cnt)
-        sub_data['angle'] = angle
+        sub_data['angle'] = stats.orientation
         
         # adds all data of the contour to the dataset
         data[template] = sub_data
