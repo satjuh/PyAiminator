@@ -74,9 +74,11 @@ def contour_analyse(bw,img,gray,norm_img):
             # maximum euclidean value that we use to evaluate contours.
             # calculated with : sqrt(delta(R)^2 + delta(G)^2 + delta(B)^2)
             # and the maximum value is with black(0,0,0) and white(255,255,255)
-            max_euclidean= math.sqrt(195075)
+            MAX_EUCLIDEAN = math.sqrt(195075)
 
-            if len(kp) > 35:
+            GOOD_KP = 35
+
+            if len(kp) > GOOD_KP:
                 
                 for template in templates_data:
                     # fetch the wanted data from template data
@@ -107,19 +109,19 @@ def contour_analyse(bw,img,gray,norm_img):
                         # store all the good matches as per Lowe's ratio test.
                         good = [m for m in matches if m.distance < 0.7]
 
-                        if len(good) > 35:
+                        if len(good) > len(kp)*0.75:
                             # calculates the euclidean distance
                             eucli = np.sqrt(
                                 (mean_val[0] - mean_val_[0]) ** 2 +(mean_val[1] - mean_val_[1]) ** 2 +(mean_val[2] - mean_val_[2]) ** 2)
                             # compares the calculated value to maximum possible value
-                            eucli_d = eucli / max_euclidean
+                            eucli_d = eucli / MAX_EUCLIDEAN
                             match[template] = eucli_d
 
                         else:
                             match[template] = 0.6
 
                     else:
-                        match[template] = max_euclidean
+                        match[template] = MAX_EUCLIDEAN
                 
                 # sorts the match dict
                 sorted_matches = sorted(match,key=lambda x:match[x],reverse=False)
@@ -145,7 +147,7 @@ def contour_analyse(bw,img,gray,norm_img):
                     # all the other contours will be ignored.
 
 
-def process_image(original,type):
+def process_image(original, type):
     """
     Process the RGB image to filter out the background and detect the models
 
@@ -197,6 +199,7 @@ def process_image(original,type):
     if type == 'img':
         # finds the contours and draws the rectangles
         contour_analyse(erode, img, grayscale, norm_img)
+    
     return eval(type)
 
     

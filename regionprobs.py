@@ -11,22 +11,31 @@ from utils import checks
 
 class ImgError(Exception):
     """
+    Custom error class to handle errors.
     """
-    def __init__(self,message,error):
-        
-        print(message+'\n',error)
+    def __init__(self, message, error):
+    """
+    Constructor for error class.
+
+    :param message: error message to display
+    :param error: type of error to be displayed
+    """
+        # TODO: finish the class
+        print(message + '\n', error)
 
 
 class RegionProbs:
     """
+    Contour analyze class emulating the way Matlabs Regionprobs works.
     """
     def __init__(self, bw, *properties, mode='outer_full',output='struct'):
         """
+        Constructor for Regionprobs
 
-        :param bw:
-        :param properties:
-        :param mode:
-        :param output:
+        :param bw: bitwise image
+        :param properties: properties to be used
+        :param mode: mode for contour detection
+        :param output: output type.
         """
         self.__modes = {'outer_simple':{'retr':'cv2.RETR_EXTERNAL', 'approx':'cv2.CHAIN_APPROX_SIMPLE'},
                         'outer_full':{'retr':'cv2.RETR_EXTERNAL', 'approx':'cv2.CHAIN_APPROX_NONE'},
@@ -51,16 +60,23 @@ class RegionProbs:
             else:
                 self.__mode = mode
 
+            # looks up the valid properties
             initial = [c for c in properties if c in property_list]
+            # if there's none - returns the default
             if len(initial) == 0:
                 initial = ['area', 'centroid', 'bounding_box']
+                print('WARNING - no valid properties. Using:\n', initial)
+
             elif 'all' in initial:
                 initial = property_list
                 initial.pop(initial.index('all'))
             self.__properties = initial
             
+            # checks if the output mode is valid
             if output in self.__outputs:
                 self.__output = output
+            
+            # else uses the default
             else:
                 self.__output = self.__outputs[0]
 
@@ -71,16 +87,16 @@ class RegionProbs:
 
         except KeyError:
             print('Invalid mode.')
-            s = ', '
-            print('Available modes:\n',s.join(self.__modes.keys()))
+            print('Available modes:\n',  ', '.join(self.__modes.keys()))
         
         except ImgError:
             print()
 
     def extract(self):
         """
+        Extracts the contours from the bw.
 
-        :return:
+        :return: np array of contour objects.
         """
         retr = eval(self.__modes[self.__mode]['retr'])
         approx = eval(self.__modes[self.__mode]['approx'])
@@ -122,92 +138,77 @@ class RegionProbs:
 
     def get_properties(self):
         """
+        Gets the properties in the output format.
 
-        :return:
+        :return: properties of the contours in wanted output format.
         """
-        try:    
-            if self.__output == self.__outputs[0]:
-                return self.__contours
+        if self.__output == self.__outputs[0]:
+            return self.__contours
 
-            elif self.__output == self.__outputs[1]:
+        elif self.__output == self.__outputs[1]:
+            
+            # do a pandas table of the contours.
+            data = {}
+            for prop in self.__properties:
+                data[prop] = [x.__get__(prop) for x in self.__contours]
 
-                data = {}
-                for prop in self.__properties:
-                    data[prop] = [x.__get__(prop) for x in self.__contours]
-
-                return pd.DataFrame(data)
+            return pd.DataFrame(data)
         
-        except AttributeError:
-            return []
 
-
-# TODO: convert all the math. to np.
 class Contour(RegionProbs):
     """
-
+    Subclass for Regionprobs.
     """
     def __init__(self, cnt, my_number, child=False, parent=False):
         """
-
-        :param cnt:
-        :param my_number:
-        :param child:
-        :param parent:
-        :return:
+        :param cnt: Np array of outline points for contour 
+        :param my_number: number that contour can be pointed to. 
+        :param child: one of the contours possbile childrens number
+        :param parent: contours parent number
         """
         self.__cnt = cnt
-
         self.__moment = cv2.moments(cnt)
-
         self.__number = my_number
         self.__child = child
         self.__parent = parent
 
     def __get__(self, var):
         """
+        Method to call any other method from the class 
 
-        :param var:
-        :return:
+        :param var: variable to be called.
+        :return: self.var
         """
         return getattr(self, var)
 
-    def pointer(self, param):
-        """
-
-        :param param:
-        :return:
-        """
-        if param == 'child':
-            return self.__child
-        elif param == 'parent':
-            return self.__parent
-        else:
-            return False
-
     @property
     def cnt(self):
+        """
+        :return: original contour information.
+        """
         return self.__cnt
 
     def get_number(self):
         """
-
-        :return:
+        :return: my number related to all the other contours in the image.
         """
         return self.__number
     
     @property
     def area(self):
         """
+        Contours area calculated by: #TODO
 
-        :return:
+        :return: area (float)
         """
         return self.__moment['m00']
 
     @property
     def aspect_ratio(self):
         """
+        Aspect ratio that covers the contour.
 
-        :return:
+        :return: aspect ratio (float)
         """        
         x, y, w, h = self.bounding_box
 
@@ -216,16 +217,19 @@ class Contour(RegionProbs):
     @property
     def bounding_box(self):
         """
+        Bounding box that covers contour.
 
-        :return:
+        :return: x,y-cordinates and width,heigth 
         """
         return cv2.boundingRect(self.__cnt)
     
     @property
     def centroid(self):
         """
+        Centroid moment of the contour.
+        Calculated with: #TODO
 
-        :return:
+        :return: (centroid_x, centroid_y)
         """
         cx = self.__moment['m10'] / self.__moment['m00']
         cy = self.__moment['m01'] / self.__moment['m00']
@@ -235,8 +239,10 @@ class Contour(RegionProbs):
     @property
     def convex_area(self):
         """
+        Area of the hull of the contour.
+        Calculated with: #TODO
 
-        :return:
+        :return: hull area (float)
         """
         hull = self.convex_hull
         
@@ -245,40 +251,30 @@ class Contour(RegionProbs):
     @property
     def convex_hull(self):
         """
-
-        :return:
+        #TODO
         """
         return cv2.convexHull(self.__cnt)
     
     def convex_image(self, image):
-        """
-
-        :param image:
-        :return:
-        """
+        #TODO
         pass
     
     @property
     def eccentricity(self):
-        """
-
-        :return:
-        """
+        #TODO
         pass
 
     @property
     def equiv_diameter(self):
         """
-
-        :return:
+        #TODO
         """
         return np.sqrt(4 * self.area / math.pi)
     
     @property
     def extent(self):
         """
-
-        :return:
+        #TODO
         """
         x, y, w, h = self.bounding_box
         return self.area / (w * h)
@@ -391,28 +387,3 @@ class Contour(RegionProbs):
         :return:
         """
         return float(self.area) / self.convex_area
-
-
-
-def main():
-    img = cv2.imread('C:/Users/Eemeli/Documents/Projects/PyAiminator/images/examples/circlesBrightDark.png', 0)
-    bw = cv2.inRange(img,0,50)
-    plt.imshow(bw,cmap='gray'),plt.show()
-   # moment(bw)
-    stats = RegionProbs(bw,'all', mode='hier_full',output='table')
-    
-    data = stats.get_properties()
-    print(data)
-    #for i in data:
-        #print(i.pointer('child'))
-        #print(i.major_axis_len)
-        #print(i.equiv_diameter)
-        #print(i.area)
-        #print(i.eccentricity)
-        #print(i.centroid)
-        #print(i.orientation)
-        #print(i.extrema)
-    #print(time()-start)
-
-if __name__ == '__main__':
-    main()
