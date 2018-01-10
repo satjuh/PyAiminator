@@ -9,21 +9,6 @@ import pandas as pd
 from utils import checks 
 
 
-class ImgError(Exception):
-    """
-    Custom error class to handle errors.
-    """
-    def __init__(self, message, error):
-    """
-    Constructor for error class.
-
-    :param message: error message to display
-    :param error: type of error to be displayed
-    """
-        # TODO: finish the class
-        print(message + '\n', error)
-
-
 class RegionProbs:
     """
     Contour analyze class emulating the way Matlabs Regionprobs works.
@@ -51,7 +36,7 @@ class RegionProbs:
 
         try: 
             if not checks.check_bit_array(bw):
-                raise ImgError('Wrong type of image', 'not bw')
+                raise ValueError
             else:
                 self.__bw = bw
 
@@ -65,11 +50,12 @@ class RegionProbs:
             # if there's none - returns the default
             if len(initial) == 0:
                 initial = ['area', 'centroid', 'bounding_box']
-                print('WARNING - no valid properties. Using:\n', initial)
+                #print('WARNING - no valid properties. Using:\n', initial)
 
             elif 'all' in initial:
                 initial = property_list
                 initial.pop(initial.index('all'))
+            
             self.__properties = initial
             
             # checks if the output mode is valid
@@ -88,9 +74,9 @@ class RegionProbs:
         except KeyError:
             print('Invalid mode.')
             print('Available modes:\n',  ', '.join(self.__modes.keys()))
-        
-        except ImgError:
-            print()
+            
+        except ValueError:
+            print("Wrong image format.")
 
     def extract(self):
         """
@@ -318,7 +304,10 @@ class Contour(RegionProbs):
 
     @property
     def major_axis_len(self):
-        
+        """
+
+        :return:
+        """
         if len(self.__cnt) > 5:
             (x,y), (major_axis, minor_axis), angle = cv2.fitEllipse(self.__cnt)
         else:
@@ -328,7 +317,10 @@ class Contour(RegionProbs):
 
     @property
     def minor_axis_len(self):
-        
+        """
+
+        :return: 
+        """
         if len(self.__cnt):
             (x,y), (major_axis, minor_axis), angle = cv2.fitEllipse(self.__cnt)
         else:
