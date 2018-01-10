@@ -1,0 +1,11 @@
+cycler==0.10.0
+matplotlib==2.1.1
+numpy==1.14.0
+opencv-python==3.4.0.12
+pandas==0.22.0
+Pillow==5.0.0
+pyparsing==2.2.0
+pypiwin32==220
+python-dateutil==2.6.1
+pytz==2017.3
+six==1.11.0
