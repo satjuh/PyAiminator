@@ -1,6 +1,5 @@
 import math
 from multiprocessing import Process
-import os
 from time import time
 
 import cv2
@@ -9,7 +8,6 @@ import numpy as np
 from PIL import ImageGrab
 
 from utils import norm, roi
-#from grabscreen import grab_screen
 from templates import make_templates, analyze_templates
 import regionprobs as rp
 
@@ -52,7 +50,7 @@ def contour_analyse(stat, img, gray, norm_img):
         match = {}
         cnt = stat.cnt
         # draws a new masked image based on contour.
-        mask = np.zeros(img.shape,np.uint8)
+        mask = np.zeros(gray.shape,np.uint8)
         cv2.drawContours(mask, [cnt], 0,255, -1)
 
         # FAST points of interest analyze on the masked imge.
@@ -149,9 +147,7 @@ def image_analyse(bw, img, gray, norm_img):
     stats = rp.RegionProbs(bw, mode='outer_full', output='struct').get_properties()
 
     # handle every contour in the image.
-    #a = [x for x in range(25)]
     for i in range(0, len(stats), 10):
-        #print(a[i:i+10])
         for stat in stats[i:i + 10]:
             p = Process(target=contour_analyse, args=(stat, img, gray, norm_img))
             p.run()
