@@ -1,4 +1,5 @@
 import math
+from multiprocessing import Process
 import os
 from time import time
 
@@ -8,7 +9,7 @@ import numpy as np
 from PIL import ImageGrab
 
 from utils import norm, roi
-from grabscreen import grab_screen
+#from grabscreen import grab_screen
 from templates import make_templates, analyze_templates
 import regionprobs as rp
 
@@ -16,7 +17,7 @@ import regionprobs as rp
 # initialises fastfeaturedetector to get initial points of interests
 fast = cv2.FastFeatureDetector_create(threshold=50, nonmaxSuppression=50)
 
-# initialises Binary Robust Invariant Scalable Keypoints for 
+# initialises Binary Robust Invariant Scalable Keypoints for
 # keypoint descriptor analyze
 br = cv2.BRISK_create()
 
@@ -24,24 +25,119 @@ br = cv2.BRISK_create()
 bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
 
-def detection(contours, img, text):
+def detection(cnt, img, text):
     """
-    Draws the rectangle and text to the detected object.
+    Draws the rectangle and text to indicate the detected object.
 
-    :param contours: can be only one or many.
+    :param contour: 
     :param img: image we draw into
     :param text: text we want to draw over the rectangle
     """
-    for cnt in contours:
-        
-        x,y,w,h = cv2.boundingRect(cnt)
-        
-        cv2.rectangle(img,(x,y),(x+w,y+h),(255,255,52),2)
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(img, text, (x-5,y-5), font, 0.9, (255,255,52), 1)
+    x,y,w,h = cv2.boundingRect(cnt)
+
+    cv2.rectangle(img,(x,y),(x+w,y+h),(255,255,52),2)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(img, text, (x-5,y-5), font, 0.9, (255,255,52), 1)
 
 
-def contour_analyse(bw,img,gray,norm_img):
+def contour_analyse(stat, img, gray, norm_img):
+
+    # takes the Area of the contour 
+    area = stat.area
+    # takes the aspect ratio
+    aspect_ratio = stat.aspect_ratio
+    # roughly cuts out the biggest and smallest areas
+    if 10000 > area > 500:
+
+        match = {}
+        cnt = stat.cnt
+        # draws a new masked image based on contour.
+        mask = np.zeros(img.shape,np.uint8)
+        cv2.drawContours(mask, [cnt], 0,255, -1)
+
+        # FAST points of interest analyze on the masked imge.
+        masked = cv2.bitwise_and(gray,mask)
+        kp = fast.detect(masked,None)
+
+        # maximum euclidean value that we use to evaluate contours.
+        # calculated with : sqrt(delta(R)^2 + delta(G)^2 + delta(B)^2)
+        # and the maximum value is with black(0,0,0) and white(255,255,255)
+        MAX_EUCLIDEAN = math.sqrt(195075)
+
+        GOOD_KP = 35
+
+        if len(kp) > GOOD_KP:
+
+            for template in templates_data:
+                # fetch the wanted data from template data
+                angle_ = templates_data[template]['angle']
+                cnt_ = templates_data[template]['cnt']
+                aspect_ratio_ = templates_data[template]['ar']
+                angle = abs(stat.orientation)
+                # compare the contours values against each templates values
+                ret = cv2.matchShapes(cnt_,cnt,1,0.0)
+                angle_d = abs((angle - angle_) / angle_)
+                ar_d = abs((aspect_ratio - aspect_ratio_) / aspect_ratio_)
+
+                # sums them up to roughly evaluate the feature matches
+                match_value = ret + ar_d + angle_d
+
+                # rought estimate to cut out all over the top different objects
+                if 0 < match_value < 2:
+                    
+                    # takes the average color value in the contours area
+                    mean_val = cv2.mean(norm_img, mask=mask)
+                    mean_val_ = templates_data[template]['mv']
+
+                    des1 = templates_data[template]['des']
+
+                    kp, des2 = br.compute(img, kp)
+                    # calculates the matches using the BF matcher.
+                    matches = bf.match(des2,des2)
+
+                    # store all the good matches as per Lowe's ratio test.
+                    good = [m for m in matches if m.distance < 0.7]
+
+                    if len(good) > len(kp)*0.75:
+                        # calculates the euclidean distance
+                        eucli = np.sqrt(
+                            (mean_val[0] - mean_val_[0]) ** 2 +(mean_val[1] - mean_val_[1]) ** 2 +(mean_val[2] - mean_val_[2]) ** 2)
+                        # compares the calculated value to maximum possible value
+                        eucli_d = eucli / MAX_EUCLIDEAN
+                        match[template] = eucli_d
+
+                    else:
+                        match[template] = 0.6
+
+                else:
+                    match[template] = MAX_EUCLIDEAN
+
+            # sorts the match dict
+            sorted_matches = sorted(match,key=lambda x:match[x], reverse=False)
+
+            goods = [match[x] for x in sorted_matches if match[x] < MAX_EUCLIDEAN]
+            
+            if len(goods) > 2:
+                if 0.1 > match[sorted_matches[0]] >= 0:
+                    text = sorted_matches[0]
+                    detection(cnt, img, text)
+
+                # if the best match is within 0 and 0.2 we detect that contour as most similiar to that template and
+                # the second value is also somewhere close.
+                elif 0.20 > match[sorted_matches[0]] >= 0.1:
+                    text = 'm'
+                    detection(cnt, img, text)
+
+                # if it's somewhere between 0.2 and 0.8 it might be but the program can't tell with good enough
+                # certainty so the text is '?'.
+                elif 0.20 <= match[sorted_matches[0]] <= 0.8:
+                    text = '?'
+                    detection(cnt, img, text)
+
+                # all the other contours will be ignored.
+
+
+def image_analyse(bw, img, gray, norm_img):
     """
     Measures of properties of images contours and highlights them into the
     displayed image.
@@ -49,105 +145,20 @@ def contour_analyse(bw,img,gray,norm_img):
     :param bw: binary threshold image
     :param img: image we want to draw rectangles into.
     """
-    
+
     stats = rp.RegionProbs(bw, mode='outer_full', output='struct').get_properties()
-    
+
     # handle every contour in the image.
-    for stat in stats:
-    
-        # takes the Area of the contour 
-        area = stat.area
-        # takes the aspect ratio
-        aspect_ratio = stat.aspect_ratio
-        # roughly cuts out the biggest and smallest areas
-        if 10000 > area > 500:
-            
-            match = {}
-            cnt = stat.cnt
-            # draws a new masked image based on contour.
-            mask = np.zeros(gray.shape,np.uint8)
-            cv2.drawContours(mask,[cnt],0,255,-1)
-            
-            masked = cv2.bitwise_and(gray,mask)
-            kp = fast.detect(masked,None)
-
-            # maximum euclidean value that we use to evaluate contours.
-            # calculated with : sqrt(delta(R)^2 + delta(G)^2 + delta(B)^2)
-            # and the maximum value is with black(0,0,0) and white(255,255,255)
-            MAX_EUCLIDEAN = math.sqrt(195075)
-
-            GOOD_KP = 35
-
-            if len(kp) > GOOD_KP:
-                
-                for template in templates_data:
-                    # fetch the wanted data from template data
-                    angle_ = templates_data[template]['angle']
-                    cnt_ = templates_data[template]['cnt']
-                    aspect_ratio_ = templates_data[template]['ar']
-                    angle = abs(stat.orientation)
-                    # compare the contours values against each templates values
-                    ret = cv2.matchShapes(cnt_,cnt,1,0.0)
-                    angle_d = abs((angle - angle_) / angle_)
-                    ar_d = abs((aspect_ratio - aspect_ratio_) / aspect_ratio_)
-
-                    # sums them up to roughly evaluate the feature matches
-                    match_value = ret + ar_d + angle_d
-
-                    # rought estimate to cut out all over the top different objects
-                    if 0 < match_value < 2:
-                        
-                        # takes the average color value in the contours area
-                        mean_val = cv2.mean(norm_img, mask=mask)
-                        mean_val_ = templates_data[template]['mv']
-
-                        des1 = templates_data[template]['des']
-                        kp, des2 = br.compute(img, kp)
-                        # calculates the matches using the BF matcher.
-                        matches = bf.match(des2,des2)
-                        
-                        # store all the good matches as per Lowe's ratio test.
-                        good = [m for m in matches if m.distance < 0.7]
-
-                        if len(good) > len(kp)*0.75:
-                            # calculates the euclidean distance
-                            eucli = np.sqrt(
-                                (mean_val[0] - mean_val_[0]) ** 2 +(mean_val[1] - mean_val_[1]) ** 2 +(mean_val[2] - mean_val_[2]) ** 2)
-                            # compares the calculated value to maximum possible value
-                            eucli_d = eucli / MAX_EUCLIDEAN
-                            match[template] = eucli_d
-
-                        else:
-                            match[template] = 0.6
-
-                    else:
-                        match[template] = MAX_EUCLIDEAN
-                
-                # sorts the match dict
-                sorted_matches = sorted(match,key=lambda x:match[x],reverse=False)
-
-                goods = [match[x] for x in sorted_matches if match[x] < max_euclidean]
-                if len(goods) > 2:
-                    if 0.1 > match[sorted_matches[0]] >= 0:
-                        text = sorted_matches[0]
-                        detection([cnt], img,text)
-
-                    # if the best match is within 0 and 0.2 we detect that contour as most similiar to that template and
-                    # the second value is also somewhere close.
-                    elif 0.20 > match[sorted_matches[0]] >= 0.1:
-                        text = 'm'
-                        detection([cnt], img,text)
-
-                    # if it's somewhere between 0.2 and 0.8 it might be but the program can't tell with good enough
-                    # certainty so the text is '?'.
-                    elif 0.20 <= match[sorted_matches[0]] <= 0.8:
-                        text = '?'
-                        detection([cnt],img,text)
-
-                    # all the other contours will be ignored.
+    #a = [x for x in range(25)]
+    for i in range(0, len(stats), 10):
+        #print(a[i:i+10])
+        for stat in stats[i:i + 10]:
+            p = Process(target=contour_analyse, args=(stat, img, gray, norm_img))
+            p.run()
 
 
-def process_image(original, type):
+
+def process_image(original):
     """
     Process the RGB image to filter out the background and detect the models
 
@@ -172,8 +183,9 @@ def process_image(original, type):
     img_mean = cv2.mean(grayscale)
 
     # blurs the image using median blur method
-    blur_ = cv2.medianBlur(grayscale,7)
+    blur_ = cv2.medianBlur(grayscale, 7)
 
+    # resize the kernel according to mean value.
     val = int(KERNEL_VALUE * (MAX_MEAN / img_mean[0]))
 
     # morphological function to filterout the background and bring
@@ -196,11 +208,10 @@ def process_image(original, type):
     threshold = cv2.inRange(blur,5,130)
     erode = cv2.erode(threshold,(15,15),iterations=2)
 
-    if type == 'img':
-        # finds the contours and draws the rectangles
-        contour_analyse(erode, img, grayscale, norm_img)
-    
-    return eval(type)
+    # finds the contours and draws the rectangles
+    image_analyse(erode, img, grayscale, norm_img)
+
+    return img
 
     
 def main():
@@ -217,14 +228,13 @@ def main():
     ct_models = make_templates('images/templates/CT/')
     templates_data = analyze_templates(ct_models)
 
-    print('Hello there!\n')
     start = time()
     t = []
     while True:
         # captures the screen.
-        screen = grab_screen(region=(0,27,800,627))
+        screen = np.array(ImageGrab.grab(bbox=(0,27,800,627)))
         # process the screen.
-        new_screen = process_image(screen,'img')
+        new_screen = process_image(screen)
 
         # calculates the frames per second of the loop.
         t.append(time() - start)
@@ -234,11 +244,11 @@ def main():
         start = time()
 
         cv2.imshow('AimAssistant', new_screen)
-        
+
         if cv2.waitKey(25) & 0xFF == ord('q'):
             cv2.destroyAllWindows()
             break
-    
+
 
 if __name__ == '__main__':
     main()
