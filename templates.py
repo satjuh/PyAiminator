@@ -1,78 +1,88 @@
 import os
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 
+from regionprobs import RegionProbs as rp
 from utils import norm
-import regionprobs as rp
 
 
-# initialises fastfeaturedetector to get initial points of interests
-fast = cv2.FastFeatureDetector_create(threshold=50, nonmaxSuppression=50)
+class Template:
 
-# initialises Binary Robust Invariant Scalable Keypoints for 
-# keypoint descriptor analyze
-br = cv2.BRISK_create()
+    def __init__(self, img, name, fast_detector, brisk_detector):
+        """
+        Template class constructor
+        :param img:
+        :param name:
+        :param fast_detector:
+        :param brisk_detector:
+        """
+        super().__setattr__('__dict__', {})
+        self.__dict__['name'] = name
+        self.__dict__['img'] = img
 
-# BruteForce matcher to compare matches
-bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+        self.__fast = fast_detector
+        self.__br = brisk_detector
 
+        self.analyse()
 
-def make_templates(path):
-    
-    templates = {}
-    
-    for x in os.listdir(path):
+    def __getattr__(self, key):
+        """
+        Gets class attribute
+        Raises AttributeError if key is invalid
+        """
+        if key in self.__dict__:
+            return self.__dict__[key]
+        else:
+            raise AttributeError
+
+    def __setattr__(self, key, value):
+        """
+        Sets class attribute according to value
+        If key was not found, new attribute is added
+        """
+        if key in self.__dict__:
+            self.__dict__[key] = value
+        else:
+            super().__setattr__(key, value)
+
+    def analyse(self):
         
-        # reads the original RGB template image
-        original = cv2.imread(path + x, 1)
-        # normalises the image
-        model_img = norm.normalize_image(original)
-        # makes a grayscale image
-        model_gray = cv2.cvtColor(model_img,cv2.COLOR_BGR2GRAY)
-        # makes a rough mask of the image
-        model_mask = cv2.inRange(model_gray, 0, 100)
-        # fills the mask with gray image
-        masked = cv2.bitwise_and(model_gray, model_mask)
-        # takes the outer edges of the mask with gradient morph
-        kernel = np.ones((3,3),np.uint8)
-        gradient = cv2.morphologyEx(model_mask, cv2.MORPH_GRADIENT, kernel)
-        # makes a data set of template_name : [images] for further usage
-        templates[x.split(".")[0]] = [masked, model_mask, model_gray, gradient, model_img, original]
+        norm_img = norm.normalize_image(self.img)
+        gray = cv2.cvtColor(norm_img, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.medianBlur(gray, 7)
 
-    return templates
+        mask = cv2.inRange(gray, 20, 100)
+        masked = cv2.bitwise_and(gray, mask)
 
-
-def analyze_templates(templates):
-
-    data = {}
-    for template in templates:
-        sub_data = {}
+        edges = cv2.Canny(blurred, 100, 200)
 
         # saves the templates descriptors
-        kp = fast.detect(templates[template][0], None)
-        kp, des = br.compute(templates[template][0], kp)
-        sub_data['des'] = des
+        kp = self.__fast.detect(masked, None)
+        kp, des = self.__br.compute(masked, kp)
 
-        stats = rp.RegionProbs(templates[template][3],mode='outer_full')
-        
-        if len(stats.get_properties()) > 1:
-            print('Error in the template')
+        contours = rp(bw=edges, mode='outer_full', output='struct').get_properties()
 
-        stats = stats.get_properties()[0]
-        # saves the contour data
-        sub_data['cnt'] = stats.cnt
-        
-        sub_data['ar'] = stats.aspect_ratio
-        
+        # Pick the biggest contour aka the outlines of the template
+        contours = sorted(contours, key=lambda x: x.area, reverse=True)
+        contour = contours[0]
 
-        # checks the average color of the object
-        mean_val = cv2.mean(templates[template][4],mask = templates[template][1])
-        sub_data['mv'] = mean_val
-        
-        sub_data['angle'] = stats.orientation
-        
-        # adds all data of the contour to the dataset
-        data[template] = sub_data
+        self.__dict__['des'] = des
+        self.__dict__['cnt'] = contour.cnt
+        self.__dict__['ar'] = contour.aspect_ratio
+        self.__dict__['mean'] = cv2.mean(norm_img, mask=mask)
+        self.__dict__['intensity'] = cv2.mean(gray, mask=mask)
+        self.__dict__['angle'] = contour.orientation
+
+
+def make_templates(path, fast, br):
     
-    return data
+
+    templates = []
+    for x in os.listdir(path):
+        name = x.split(".")[0]
+        original = cv2.imread(path + x, 1)
+        templates.append(Template(original, name, fast, br))
+
+    return templates
