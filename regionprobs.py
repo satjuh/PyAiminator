@@ -40,7 +40,7 @@ class RegionProbs:
             else:
                 self.__bw = bw
 
-            if not isinstance(mode,str) or mode not in self.__modes:
+            if not isinstance(mode, str) or mode not in self.__modes:
                 raise KeyError
             else:
                 self.__mode = mode
@@ -84,6 +84,7 @@ class RegionProbs:
 
         :return: np array of contour objects.
         """
+        #print(self.__mode)
         retr = eval(self.__modes[self.__mode]['retr'])
         approx = eval(self.__modes[self.__mode]['approx'])
 
@@ -93,15 +94,15 @@ class RegionProbs:
         if self.__mode == "outer_simple" or self.__mode == 'outer_full':
             data = []
             for count, cnt in enumerate(contours):
-                data.append(Contour(cnt, count))
-            
-            return bw2, np.array(data)
-        
+                c = Contour(cnt, self.__bw, count)
+                data.append(c)
+            return bw2, data
+
         else:
             data = []
             for count, component in enumerate(zip(contours, hierarchy[0])): 
                 cnt = component[0]
-                
+
                 # hierarchy structure: [Next, Previous, First_Child, Parent]
                 hier = component[1]
                 parent = hier[3]
@@ -109,16 +110,16 @@ class RegionProbs:
 
                 if parent < 0 and child < 0:
                     # I'm a lonely wolf!
-                    data.append(Contour(cnt, count))
+                    data.append(Contour(cnt, self.__bw, count))
                 elif parent < 0:
                     # I'm the first in my family!
-                    data.append(Contour(cnt, count, child=child))
+                    data.append(Contour(cnt, self.__bw, count, child=child))
                 elif child < 0:
                     # I'm the youngest child.
-                    data.append(Contour(cnt, count, parent=parent))
+                    data.append(Contour(cnt, self.__bw, count, parent=parent))
                 else:
                     # I'm in the middle!
-                    data.append(Contour(cnt, count, child=child, parent=parent))
+                    data.append(Contour(cnt, self.__bw, count, child=child, parent=parent))
 
             return bw2, np.array(data)
 
@@ -132,14 +133,13 @@ class RegionProbs:
             return self.__contours
 
         elif self.__output == self.__outputs[1]:
-            
             # do a pandas table of the contours.
             data = {}
             for prop in self.__properties:
-                data[prop] = [x.__get__(prop) for x in self.__contours]
+                data[prop] = [x[prop] for x in self.__contours]
 
             return pd.DataFrame(data)
-        
+
 
 class Contour(RegionProbs):
     """
@@ -152,20 +152,45 @@ class Contour(RegionProbs):
         :param child: one of the contours possbile childrens number
         :param parent: contours parent number
         """
-        self.__cnt = cnt
-        self.__moment = cv2.moments(cnt)
-        self.__number = my_number
-        self.__child = child
-        self.__parent = parent
+        super().__setattr__('__dict__', {})
+        self.__dict__['number'] = my_number
+        self.__dict__['cnt'] = cnt
+        self.__dict__['moment'] = cv2.moments(cnt)
+        self.__dict__['child'] = child
+        self.__dict__['parent'] = parent
+        self.__dict__['name'] = None
 
-    def __get__(self, var):
+    def __getattr__(self, key):
         """
-        Method to call any other method from the class 
+        Gets class attribute
+        Raises AttributeError if key is invalid
+        """
+        if key in self.__dict__:
+            return self.__dict__[key]
+        else:
+            raise AttributeError
 
-        :param var: variable to be called.
-        :return: self.var
+    def __setattr__(self, key, value):
         """
-        return getattr(self, var)
+        Sets class attribute according to value
+        If key was not found, new attribute is added
+        """
+        if key in self.__dict__:
+            self.__dict__[key] = value
+        else:
+            super().__setattr__(key, value)
+    
+    def __add__(self, contour):
+        """
+        Appends the existing contour array
+        """
+        self.cnt = np.append(self.cnt, contour.cnt)
+
+    @property
+    def name(self):
+        """
+        """
+        return self.__name
 
     @property
     def cnt(self):
@@ -179,7 +204,7 @@ class Contour(RegionProbs):
         :return: my number related to all the other contours in the image.
         """
         return self.__number
-    
+
     @property
     def area(self):
         """
@@ -187,7 +212,7 @@ class Contour(RegionProbs):
 
         :return: area (float)
         """
-        return self.__moment['m00']
+        return self.moment['m00']
 
     @property
     def aspect_ratio(self):
@@ -199,7 +224,7 @@ class Contour(RegionProbs):
         x, y, w, h = self.bounding_box
 
         return float(w)/h
-    
+
     @property
     def bounding_box(self):
         """
@@ -207,8 +232,8 @@ class Contour(RegionProbs):
 
         :return: x,y-cordinates and width,heigth 
         """
-        return cv2.boundingRect(self.__cnt)
-    
+        return cv2.boundingRect(self.cnt)
+
     @property
     def centroid(self):
         """
@@ -217,8 +242,8 @@ class Contour(RegionProbs):
 
         :return: (centroid_x, centroid_y)
         """
-        cx = self.__moment['m10'] / self.__moment['m00']
-        cy = self.__moment['m01'] / self.__moment['m00']
+        cx = self.moment['m10'] / self.moment['m00']
+        cy = self.moment['m01'] / self.moment['m00']
 
         return (cx, cy)
 
@@ -231,16 +256,16 @@ class Contour(RegionProbs):
         :return: hull area (float)
         """
         hull = self.convex_hull
-        
+
         return cv2.contourArea(hull)
-    
+
     @property
     def convex_hull(self):
         """
         #TODO
         """
-        return cv2.convexHull(self.__cnt)
-    
+        return cv2.convexHull(self.cnt)
+
     def convex_image(self, image):
         #TODO
         pass
@@ -288,7 +313,8 @@ class Contour(RegionProbs):
         """
         pass
 
-    def filled_image(self, image):
+    @property
+    def filled_image(self):
         """
 
         :return:
@@ -309,7 +335,7 @@ class Contour(RegionProbs):
         :return:
         """
         if len(self.__cnt) > 5:
-            (x,y), (major_axis, minor_axis), angle = cv2.fitEllipse(self.__cnt)
+            (x,y), (major_axis, minor_axis), angle = cv2.fitEllipse(self.cnt)
         else:
             major_axis = 0
 
@@ -322,7 +348,7 @@ class Contour(RegionProbs):
         :return: 
         """
         if len(self.__cnt):
-            (x,y), (major_axis, minor_axis), angle = cv2.fitEllipse(self.__cnt)
+            (x,y), (major_axis, minor_axis), angle = cv2.fitEllipse(self.cnt)
         else:
             minor_axis = 0
 
@@ -337,9 +363,9 @@ class Contour(RegionProbs):
         x, y = self.centroid
         try:
             
-            du20 = self.__moment['m20'] / self.__moment['m00'] - x**2 
-            du11 = self.__moment['m11'] / self.__moment['m00'] - x*y 
-            du02 = self.__moment['m02'] / self.__moment['m00'] - y**2 
+            du20 = self.moment['m20'] / self.moment['m00'] - x**2 
+            du11 = self.moment['m11'] / self.moment['m00'] - x*y 
+            du02 = self.moment['m02'] / self.moment['m00'] - y**2 
             
             angle = 0.5 * np.arctan2((2 * du11), (du20 - du02))
     
