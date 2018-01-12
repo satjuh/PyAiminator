@@ -50,7 +50,6 @@ class RegionProbs:
             # if there's none - returns the default
             if len(initial) == 0:
                 initial = ['area', 'centroid', 'bounding_box']
-                #print('WARNING - no valid properties. Using:\n', initial)
 
             elif 'all' in initial:
                 initial = property_list
@@ -185,25 +184,6 @@ class Contour(RegionProbs):
         Appends the existing contour array
         """
         self.cnt = np.append(self.cnt, contour.cnt)
-
-    @property
-    def name(self):
-        """
-        """
-        return self.__name
-
-    @property
-    def cnt(self):
-        """
-        :return: original contour information.
-        """
-        return self.__cnt
-
-    def get_number(self):
-        """
-        :return: my number related to all the other contours in the image.
-        """
-        return self.__number
 
     @property
     def area(self):
