@@ -12,7 +12,6 @@ import six.moves.urllib as urllib
 
 # Tensorflow object_detection imports
 import object_detection.utils.label_map_util as label_map_util
-import object_detection.utils.visualization_utils as vis_util
 
 from process import ImageProcess as ip
 from templates import make_templates
@@ -21,7 +20,7 @@ from judge import Judge
 NUM_CLASSES = 90
 
 
-def setup():
+def setup_tensor():
     # Model to download.
     MODEL_NAME = 'ssd_mobilenet_v1_coco_11_06_2017'
     MODEL_FILE = MODEL_NAME + '.tar.gz'
@@ -35,14 +34,6 @@ def setup():
     
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
     
-    detection_graph = tf.Graph()
-    with detection_graph.as_default():
-        od_graph_def = tf.GraphDef()
-        with tf.gfile.GFile(PATH_TO_CKPT, 'rb') as fid:
-            serialized_graph = fid.read()
-            od_graph_def.ParseFromString(serialized_graph)
-            tf.import_graph_def(od_graph_def, name='')
-
     if not os.path.exists(MODEL_FILE):
         print("Downloading the model...")
         opener = urllib.request.URLopener()
@@ -54,10 +45,18 @@ def setup():
                 tar_file.extract(file, os.getcwd())
         print("Completed\n")
 
+    detection_graph = tf.Graph()
+    with detection_graph.as_default():
+        od_graph_def = tf.GraphDef()
+        with tf.gfile.GFile(PATH_TO_CKPT, 'rb') as fid:
+            serialized_graph = fid.read()
+            od_graph_def.ParseFromString(serialized_graph)
+            tf.import_graph_def(od_graph_def, name='')
+
     label_map = label_map_util.load_labelmap(PATH_TO_LABELS)
     categories = label_map_util.convert_label_map_to_categories(label_map, max_num_classes=NUM_CLASSES, use_display_name=True)
     category_index = label_map_util.create_category_index(categories)
-    
+
     return detection_graph, category_index
 
 
@@ -80,9 +79,9 @@ def main():
     # initialize the data of the templates
     ct_models = make_templates('images/templates/CT/', fast, br)
 
-    detection_graph, category_index = setup()
+    dg, ci = setup_tensor()
 
-    j = Judge(detection_graph, category_index)
+    j = Judge(dg, ci, ct_models, fast, br, bf)
     j.analyse_screen(800, 600)
 
 if __name__ == '__main__':
