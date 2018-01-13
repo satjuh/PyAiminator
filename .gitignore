@@ -3,6 +3,10 @@
 *images/steps
 *images/examples
 *.vscode
-
+*models-master
+*object_detection
 # dotenv
 .env
+*.db
+*.gz
+*.pb
