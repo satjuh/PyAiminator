@@ -62,7 +62,7 @@ class Template:
         kp = self.__fast.detect(masked, None)
         kp, des = self.__br.compute(masked, kp)
 
-        contours = rp(bw=edges, mode='outer_full', output='struct').get_properties()
+        contours = rp(bw=edges).get_properties()
 
         # Pick the biggest contour aka the outlines of the template
         contours = sorted(contours, key=lambda x: x.area, reverse=True)

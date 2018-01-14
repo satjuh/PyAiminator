@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from utils import checks 
+from utils import checks
 
 
 class RegionProbs:
@@ -54,13 +54,13 @@ class RegionProbs:
             elif 'all' in initial:
                 initial = property_list
                 initial.pop(initial.index('all'))
-            
+
             self.__properties = initial
-            
+
             # checks if the output mode is valid
             if output in self.__outputs:
                 self.__output = output
-            
+
             # else uses the default
             else:
                 self.__output = self.__outputs[0]
@@ -73,7 +73,7 @@ class RegionProbs:
         except KeyError:
             print('Invalid mode.')
             print('Available modes:\n',  ', '.join(self.__modes.keys()))
-            
+
         except ValueError:
             print("Wrong image format.")
 
@@ -142,7 +142,7 @@ class RegionProbs:
 
 class Contour(RegionProbs):
     """
-    Subclass for Regionprobs.
+    Subclass for Regionprobs, a single contour item.
     """
     def __init__(self, cnt, my_number, child=False, parent=False):
         """
@@ -157,7 +157,7 @@ class Contour(RegionProbs):
         self.__dict__['moment'] = cv2.moments(cnt)
         self.__dict__['child'] = child
         self.__dict__['parent'] = parent
-        self.__dict__['name'] = None
+        self.__dict__['name'] = "?"
 
     def __getattr__(self, key):
         """
