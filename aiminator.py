@@ -2,23 +2,20 @@ import os
 import sys
 import tarfile
 import zipfile
-from time import time
 
 import cv2
 import numpy as np
 import tensorflow as tf
-from PIL import ImageGrab
 import six.moves.urllib as urllib
 
 # Tensorflow object_detection imports
 import object_detection.utils.label_map_util as label_map_util
 
-from process import ImageProcess as ip
+from process import CollectProcess
 from templates import make_templates
 from judge import Judge
 
 NUM_CLASSES = 90
-
 
 def setup_tensor():
     # Model to download.
@@ -26,14 +23,12 @@ def setup_tensor():
     MODEL_FILE = MODEL_NAME + '.tar.gz'
     DOWNLOAD_BASE = 'http://download.tensorflow.org/models/object_detection/'
 
-    # Path to frozen detection graph. This is the actual model that is used for the object detection.
-    PATH_TO_CKPT = MODEL_NAME + '/frozen_inference_graph.pb'
-
     # List of the strings that is used to add correct label for each box.
     PATH_TO_LABELS = os.path.join('object_detection', 'data', 'mscoco_label_map.pbtxt')
-    
+
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    
+
+    # Downloads the model if it doesn't exist already
     if not os.path.exists(MODEL_FILE):
         print("Downloading the model...")
         opener = urllib.request.URLopener()
@@ -45,6 +40,10 @@ def setup_tensor():
                 tar_file.extract(file, os.getcwd())
         print("Completed\n")
 
+    # Path to frozen detection graph. This is the actual model that is used for the object detection.
+    PATH_TO_CKPT = MODEL_NAME + '/frozen_inference_graph.pb'
+
+    # Loads the model 
     detection_graph = tf.Graph()
     with detection_graph.as_default():
         od_graph_def = tf.GraphDef()
@@ -79,10 +78,12 @@ def main():
     # initialize the data of the templates
     ct_models = make_templates('images/templates/CT/', fast, br)
 
-    dg, ci = setup_tensor()
+    #dg, ci = setup_tensor()
 
-    j = Judge(dg, ci, ct_models, fast, br, bf)
-    j.analyse_screen(800, 600)
+    c = CollectProcess(ct_models, fast, br, bf, 'debug')
+    c.collect_from_screen(800,600)
+    print(c)
+
 
 if __name__ == '__main__':
     main()
