@@ -303,10 +303,14 @@ class Contour(RegionProbs):
 
     def image(self, image):
         """
-
-        :return:
+        Cuts the contours bounding box area from the original image
+        Error will occure if the image size doesn't match the original bw image.
+        
+        :return: image size of contours bounding box
         """
-        pass
+        x, y, w, h = self.bounding_box
+        return image[y:y+h, x:x+w, :]
+
 
     @property
     def major_axis_len(self):
