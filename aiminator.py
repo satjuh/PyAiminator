@@ -11,9 +11,7 @@ import six.moves.urllib as urllib
 # Tensorflow object_detection imports
 import object_detection.utils.label_map_util as label_map_util
 
-from process import CollectProcess
-from templates import make_templates
-from judge import Judge
+from src import process, templates, judge
 
 NUM_CLASSES = 90
 
@@ -76,11 +74,11 @@ def main():
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
     # initialize the data of the templates
-    ct_models = make_templates('images/templates/CT/', fast, br)
+    ct_models = templates.make_templates('images/templates/CT/', fast, br)
 
     #dg, ci = setup_tensor()
 
-    c = CollectProcess(ct_models, fast, br, bf, 'debug')
+    c = process.CollectProcess(ct_models, fast, br, bf, 'debug')
     c.collect_from_screen(800,600)
     print(c)
 

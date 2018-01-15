@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from utils import checks
+import src.utils.checks as checks
 
 
 class RegionProbs:

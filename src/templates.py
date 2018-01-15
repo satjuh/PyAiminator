@@ -4,8 +4,8 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-from regionprobs import RegionProbs as rp
-from utils import norm
+from src.regionprobs import RegionProbs as rp
+import src.utils.norm as norm
 
 
 class Template:

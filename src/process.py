@@ -1,14 +1,15 @@
 import math
 import os
 from time import time
+import sys
 
 import cv2
 import numpy as np
 import pandas as pd
 from PIL import ImageGrab
 
-from regionprobs import RegionProbs as rp
-from utils import norm
+from src.regionprobs import RegionProbs as rp
+import src.utils.norm as norm
 
 
 class ImageProcess:
@@ -309,7 +310,7 @@ class CollectProcess:
         kp = self.__fast.detect(gray, None)
 
         process_time = time()
-        process = ImageProcess(image, self.__templates, self.__fast, self.__br, self.__bf, 'draw')
+        process = ImageProcess(image, self.__templates, self.__fast, self.__br, self.__bf)
         process_time = time() - process_time
 
         print(process_time)

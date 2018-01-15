@@ -7,7 +7,7 @@ import tensorflow as tf
 import pandas as pd
 from PIL import ImageGrab
 
-from process import ImageProcess as ip
+from src.process import ImageProcess as ip
 import object_detection.utils.visualization_utils as vis_util
 
 
