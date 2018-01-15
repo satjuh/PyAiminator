@@ -1,5 +1,6 @@
 import math
 import os
+import pickle
 from time import time
 import sys
 
@@ -88,6 +89,9 @@ class ImageProcess:
         """
         contours = rp(self.__bitwise).get_properties()
         self.__dict__['detections'] = [x for x in contours if self.process_contour(x) == 1]
+
+        if 'collect' in self.__modes:
+            self.__dict__['detection_data'] = np.array([x.image(self.image) for x in self.detections])
 
         if 'draw' in self.__modes:
             for detection in self.detections:
@@ -207,7 +211,9 @@ class ImageProcess:
 
 
 class CollectProcess:
-
+    """
+    Collect Process class to harvest data
+    """
     def __init__(self, templates, fast, br, bf, *args, directory='data', path=''):
         """
         Constructor for CollectProcess class
@@ -243,7 +249,7 @@ class CollectProcess:
         self.__index = 1
         self.__df = pd.DataFrame(columns = ('detections', 'intensity', 'fast_kp', 'process_time'))
 
-    def __str__(self):
+    def info(self):
         if self.__df.empty:
             return "\nError! No data was collected"
         else:
@@ -256,30 +262,39 @@ class CollectProcess:
                        self.__index, 0, 0, 0
                    ))
 
-    def collect_from_screen(self, width, heigth, windowed=True):
+    def save_data(self):
+        pass
+
+    def collect_from_screen(self, width, heigth, windowed=True, time_out = 1):
 
         if width <= 0 or heigth <= 0:
             raise ValueError("Incorrect dimensions for screen capture")
+        
         # if on windowed mode, lower the capture area
         if windowed:
             padding = 27
             heigth += padding
+        
+        if 'debug' in self.__modes:
+            while True:
+                # captures the screen with ImageGrab in RGB.
+                screen = np.array(ImageGrab.grab(bbox=(0,padding,width,heigth)))
+                # converts it to BGR
+                screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
+                process = self.analyse_frame(screen)
 
-        while True:
-            # captures the screen with ImageGrab in RGB.
-            screen = np.array(ImageGrab.grab(bbox=(0,padding,width,heigth)))
-            # converts it to BGR
-            screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
-
-            process = self.analyse_frame(screen)
-
-            if 'debug' in self.__modes:
                 cv2.imshow('AimAssistant', process.image)
 
                 if cv2.waitKey(25) & 0xFF == ord('q'):
                     cv2.destroyAllWindows()
                     break
+        else:
+            while True:
+                screen = np.array(ImageGrab.grab(bbox=(0,padding,width,heigth)))
+                screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
+                process = self.analyse_frame(screen)
         
+        print(self.info())
         #TODO save the dataframe as file
 
     def collect_from_video(self, path, frame_limit):
@@ -289,35 +304,44 @@ class CollectProcess:
 
         # Open the video file
         cap = cv2.VideoCapture(path)
+        if 'debug' in self.__modes:
+            while cap.isOpened():
+                # Read the frame
+                ret, frame = cap.read()
+                process = self.analyse_frame(frame)
 
-        while cap.isOpened():
-            # Read the frame
-            ret, frame = cap.read()
-
-            process = self.analyse_frame(frame)
-
-            if 'debug' in self.__modes:
                 cv2.imshow('AimAssistant', process.image)
 
                 if cv2.waitKey(25) & 0xFF == ord('q'):
                     cv2.destroyAllWindows()
                     break
+        else:
+            while cap.isOpened():
+                # Read the frame
+                ret, frame = cap.read()
+                process = self.analyse_frame(frame)
 
-    def analyse_frame(self, image):
+    def analyse_frame(self, image, time_out = False):
 
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         intensity = cv2.mean(gray)[0]
         kp = self.__fast.detect(gray, None)
 
         process_time = time()
-        process = ImageProcess(image, self.__templates, self.__fast, self.__br, self.__bf)
+        process = ImageProcess(image, self.__templates, self.__fast, self.__br, self.__bf, 'collect')
         process_time = time() - process_time
 
         print(process_time)
         if process.detections:
             new_row = [len(process.detections), intensity, len(kp), process_time]
-            
+
             self.__df.loc[self.__index] = new_row
+
+            packet = {'image':image, 'detections':process.detection_data}
+
+            file_name = self.__path + "/{:d}.pickle".format(self.__index)
+            with open(file_name, 'wb') as file:
+                pickle.dump(packet, file)
             self.__index += 1
 
         return process
