@@ -2,9 +2,7 @@ import sys
 
 import cv2
 
-from src import judge, process, templates
-
-NUM_CLASSES = 90
+from src import judge, process, templates, setup
 
 
 def main():
@@ -26,11 +24,12 @@ def main():
     # initialize the data of the templates
     ct_models = templates.make_templates('images/templates/CT/', fast, br)
 
-    #dg, ci = setup_tensor()
-
-    c = process.CollectProcess(ct_models, fast, br, bf, 'debug')
+    #dg, ci = setup.setup_tensor()
+    data_path = "M:/Projects/PyAiminator"
+    c = process.CollectProcess(ct_models, fast, br, bf, 'debug', path=data_path)
     c.collect_from_screen(800,600)
-
+    #j = judge.Judge(data_path + "/data/data_0/", "df_0.csv")
+    #j.evaluate_tensorflow(dg, ci)
 
 if __name__ == '__main__':
     main()
