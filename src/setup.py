@@ -18,7 +18,9 @@ def setup_tensor():
 
     # List of the strings that is used to add correct label for each box.
     PATH_TO_LABELS = os.path.join('object_detection', 'data', 'mscoco_label_map.pbtxt')
-
+    
+    NUM_CLASSES = 90
+    
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
     # Downloads the model if it doesn't exist already
