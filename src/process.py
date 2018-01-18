@@ -1,7 +1,7 @@
 import math
 import os
 import pickle
-from time import time
+from time import time, sleep
 import sys
 
 import cv2
@@ -156,8 +156,6 @@ class ImageProcess:
                             matches = self.__bf.match(template.des, des)
 
                             # store all the good matches as per Lowe's ratio test.
-                            #good = [m for m in matches if m.distance < 0.5]
-                            #print(len(matches), len(kp))
                             if len(matches) >= len(kp)*0.65:
                                 # calculates the euclidean distance
                                 eucli = np.sqrt(
@@ -214,7 +212,7 @@ class CollectProcess:
     """
     Collect Process class to harvest data
     """
-    def __init__(self, templates, fast, br, bf, *args, directory='data', path=''):
+    def __init__(self, templates, fast, br, bf, *args, directory='data', path='', df_path=''):
         """
         Constructor for CollectProcess class
 
@@ -225,28 +223,33 @@ class CollectProcess:
         :param args:
         :param directory:
         :param path:
+        :param df_path:
         """
         self.__templates = templates
         self.__fast = fast
         self.__br = br
         self.__bf = bf
         self.__modes = args
+        self.__path = path + '/' + directory
 
-        if not os.path.exists(directory):
-            os.mkdir(directory)
+        if not os.path.exists(self.__path):
+            os.mkdir(self.__path)
 
-        if os.listdir(directory):
-            index = sorted([int(f.split('image_data_')[1]) for f in os.listdir(directory)], reverse=True)[0] + 1
+        if os.listdir(self.__path):
+            index = sorted([int(f.split('data_')[1]) for f in os.listdir(self.__path)], reverse=True)[0] + 1
         else:
             index = 0
-        
+
         try:
-            self.__path = '{:s}{:s}/image_data_{:d}'.format(path, directory, index) 
-            os.mkdir(self.__path)
+            
+            self.__dir = self.__path + '/data_{:d}'.format(index)
+            self.__df_out = df_path + 'df_{:d}.csv'.format(index)
+
+            os.mkdir(self.__dir)
         except OSError:
             raise OSError("Path is not valid")
         
-        self.__index = 1
+        self.__index = 0
         self.__df = pd.DataFrame(columns = ('detections', 'intensity', 'fast_kp', 'process_time'))
 
     def info(self):
@@ -262,10 +265,9 @@ class CollectProcess:
                        self.__index, 0, 0, 0
                    ))
 
-    def save_data(self):
-        pass
-
     def collect_from_screen(self, width, heigth, windowed=True, time_out = 1):
+
+        self.__time_out = time_out
 
         if width <= 0 or heigth <= 0:
             raise ValueError("Incorrect dimensions for screen capture")
@@ -295,7 +297,7 @@ class CollectProcess:
                 process = self.analyse_frame(screen)
         
         print(self.info())
-        #TODO save the dataframe as file
+        self.__df.to_csv(self.__df_out)
 
     def collect_from_video(self, path, frame_limit):
 
@@ -321,7 +323,7 @@ class CollectProcess:
                 ret, frame = cap.read()
                 process = self.analyse_frame(frame)
 
-    def analyse_frame(self, image, time_out = False):
+    def analyse_frame(self, image):
 
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         intensity = cv2.mean(gray)[0]
@@ -331,17 +333,21 @@ class CollectProcess:
         process = ImageProcess(image, self.__templates, self.__fast, self.__br, self.__bf, 'collect')
         process_time = time() - process_time
 
-        print(process_time)
         if process.detections:
+            print("Detected.")
             new_row = [len(process.detections), intensity, len(kp), process_time]
 
             self.__df.loc[self.__index] = new_row
-
+            # Save the data into packet for further use
             packet = {'image':image, 'detections':process.detection_data}
 
-            file_name = self.__path + "/{:d}.pickle".format(self.__index)
+            file_name = self.__dir + "/{:d}.pickle".format(self.__index)
             with open(file_name, 'wb') as file:
                 pickle.dump(packet, file)
+            
             self.__index += 1
+
+            # Sleep so we don't analyse the same frame multiple times
+            sleep(self.__time_out)
 
         return process
