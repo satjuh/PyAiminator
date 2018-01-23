@@ -1,8 +1,10 @@
+import argparse
 import sys
 
 import cv2
 
 from src import judge, process, templates, setup
+from scripts.examples import live_demo, samples
 
 
 def main():
@@ -25,11 +27,21 @@ def main():
     ct_models = templates.make_templates('images/templates/CT/', fast, br)
 
     #dg, ci = setup.setup_tensor()
-    data_path = "M:/Projects/PyAiminator"
+    #data_path = "M:/Projects/PyAiminator"
+    data_path = ""
     c = process.CollectProcess(ct_models, fast, br, bf, 'debug', path=data_path)
-    c.collect_from_screen(800,600)
-    #j = judge.Judge(data_path + "/data/data_0/", "df_0.csv")
+    c.collect_from_screen(800, 600)
+    #j = judge.Judge(data_path + "data/data_0/", "df_0.csv")
     #j.evaluate_tensorflow(dg, ci)
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--demo')
+    args = parser.parse_args()
+
+    if args.demo == 'live':
+        live_demo()
+    elif args.demo == 'samples':
+        samples('images/examples/')
+    else:
+        main()
