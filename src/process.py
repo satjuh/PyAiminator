@@ -230,7 +230,7 @@ class CollectProcess:
         self.__br = br
         self.__bf = bf
         self.__modes = args
-        self.__path = path + '/' + directory
+        self.__path = path + directory
 
         if not os.path.exists(self.__path):
             os.mkdir(self.__path)
@@ -239,9 +239,7 @@ class CollectProcess:
             index = sorted([int(f.split('data_')[1]) for f in os.listdir(self.__path)], reverse=True)[0] + 1
         else:
             index = 0
-
         try:
-            
             self.__dir = self.__path + '/data_{:d}'.format(index)
             self.__df_out = df_path + 'df_{:d}.csv'.format(index)
 
@@ -271,12 +269,12 @@ class CollectProcess:
 
         if width <= 0 or heigth <= 0:
             raise ValueError("Incorrect dimensions for screen capture")
-        
+
         # if on windowed mode, lower the capture area
         if windowed:
             padding = 27
             heigth += padding
-        
+
         if 'debug' in self.__modes:
             while True:
                 # captures the screen with ImageGrab in RGB.
@@ -295,9 +293,10 @@ class CollectProcess:
                 screen = np.array(ImageGrab.grab(bbox=(0,padding,width,heigth)))
                 screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
                 process = self.analyse_frame(screen)
-        
+
         print(self.info())
-        self.__df.to_csv(self.__df_out)
+        if not self.__df.empty:
+            self.__df.to_csv(self.__df_out)
 
     def collect_from_video(self, path, frame_limit):
 
