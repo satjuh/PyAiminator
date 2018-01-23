@@ -28,14 +28,14 @@ class Judge:
         else:
             raise OSError("File not exist")
 
-        self.__df = pd.DataFrame.read_csv(path=df_path)
-        self.__new_df = pd.DataFrame(columns = ('correct_tf', 'incorrect_tf', 'tf_detections', 'tf_time'))
+        self.__df = pd.read_csv(df_path)
 
     def evaluate_tensorflow(self, detection, categories):
 
         self.__detection = detection
         self.__categories = categories
         self.__accepted = ["person", "backpack"]
+        self.__new_df = pd.DataFrame(columns = ('correct_tf', 'incorrect_tf', 'tf_detections', 'tf_time'))
 
         with detection.as_default():
             with tf.Session(graph=detection) as sess:
@@ -62,6 +62,7 @@ class Judge:
                     new_row = {'correct_tf':correct, 'incorrect_tf':incorrect, 'tf_detections':evaluate_image, 'tf_time':tf_time}
 
                     self.__new_df.loc[index] = new_row
+                    print(self.__new_df)
 
                 # Once the process is done, merge the new data to old df
                 self.__df = pd.concat([self.__df, self.__new_df], axis=1)
@@ -94,6 +95,25 @@ class Judge:
         return sum(detections)
 
 
-    def evaluate_X(self):
-        pass
+    def human_evaluation(self):
+        
+        for file in os.listdir(self.__files):
 
+            print(file)
+
+            with open(file, 'rb') as f:
+                data = pickle.load(file)
+                image = data['image']
+                detections = data['detections']
+
+            #TODO show the image
+            expected = input("How many humanoids is in the picture?(0-n): ")
+            actual = sum([self.human_process(x) for x in detections])
+
+    def human_process(self, image):
+
+        #TODO show the image
+        if input('Is this a humanoid?(Y/N)').capitalize() == 'Y':
+            return 1
+        else: 
+            return 0
