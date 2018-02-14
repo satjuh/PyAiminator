@@ -4,7 +4,8 @@ import sys
 import cv2
 
 from src import judge, process, templates, setup
-from scripts.examples import live_demo, samples
+from examples.screen_demo import live_demo 
+from examples.static_images import samples
 
 
 def main():
@@ -35,8 +36,10 @@ def main():
     #j.evaluate_tensorflow(dg, ci)
 
 if __name__ == '__main__':
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('--demo')
+
     args = parser.parse_args()
 
     if args.demo == 'live':
