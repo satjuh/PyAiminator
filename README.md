@@ -9,21 +9,30 @@ OpenCV.
 
 The detection process is compared and evaluated using Tensorflow object detection API [link](https://github.com/tensorflow/models/tree/master/research/object_detection).
 
-## Strategy:
+
+### Strategy:
 * Filtering and thresholding
 * Analysing contours
 * Matching features
 * Matching color space
 
-## Examples
-![Test 1](/images/test/test1.jpg)
 
-In a simple situations the detection works fine.
+### Requirements
 
-![Test 2](/images/test/test2.jpg)
+- Python 3.6.4 (64-bit for tensorflow)
+- Tensorflow [object_detection](https://github.com/tensorflow/models/tree/master/research/object_detection) for judge.
 
-When models overlap it causes problems
 
-![Test 3](/images/test/test3.jpg)
+### Examples
 
-Different map and similiar colored background caused problems
+Example usage:
+
+1. List of all available commands
+```
+$ python aiminator.py -h
+```
+
+2. Run a live demo
+```
+$ python aiminator.py --demo live
+```
