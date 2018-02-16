@@ -1,21 +1,31 @@
 import math
 import os
 import pickle
-from time import time, sleep
+import shutil
 import sys
+from time import sleep, time
 
 import cv2
 import numpy as np
 import pandas as pd
 from PIL import ImageGrab
 
-from src.regionprobs import RegionProbs as rp
 import src.utils.norm as norm
+from src.paths import DataPath
+from src.regionprobs import RegionProbs as rp
+from src.templates import make_templates
 
 
 class ImageProcess:
 
-    def __init__(self, image, templates, fast_detector, brisk_detector, bf_detector, *args):
+    def __init__(
+        self, 
+        image, 
+        templates, 
+        fast_detector, 
+        brisk_detector, 
+        bf_detector, 
+        *args):
         """
         Constructor for ImageProcess object.
 
@@ -41,11 +51,10 @@ class ImageProcess:
 
     def process_image(self):
 
-        # normalizes the screen imgae
         self.__norm = norm.normalize_image(self.image)
-        # convert image to grayscale
+
         self.__gray = cv2.cvtColor(self.__norm, cv2.COLOR_RGB2GRAY)
-        # blurs the image using median blur method with kernel 7
+
         self.__blurred = cv2.medianBlur(self.__gray, 11)
 
         kernel = np.ones((130,130), np.uint8)
@@ -108,10 +117,8 @@ class ImageProcess:
             detection = 0
             # takes the Area of the contour 
             area = contour.area
-            #print(area)
             # takes the aspect ratio
             aspect_ratio = contour.aspect_ratio
-            #print(area)
             # roughly cuts out the biggest and smallest areas
             if 10000 > area > 500:
 
@@ -143,7 +150,6 @@ class ImageProcess:
                         match_value = ret + ar_d + angle_d
 
                         name = template.name
-                        #print(match_value)
                         # rought estimate to cut out all over the top different objects
                         if 0 < match_value < 2:
 
@@ -163,10 +169,8 @@ class ImageProcess:
                                 # compares the calculated value to maximum possible value
                                 eucli_d = eucli / self.__MAX_EUCLIDEAN
                                 match[name] = eucli_d
-
                             else:
                                 match[name] = 0.6
-
                         else:
                             match[name] = 1
 
@@ -176,23 +180,20 @@ class ImageProcess:
                     goods = [match[x] for x in sorted_matches if match[x] < 1]
 
                     if len(goods) > 2:
-
                         # Checks the best match percentage and choose the name accordingly
                         if 0.1 > match[sorted_matches[0]] >= 0:
                             contour.name = sorted_matches[0]
                             detection += 1
-
                         elif 0.20 > match[sorted_matches[0]] >= 0.1:
                             contour.name='m'
                             detection += 1
-
                         elif 0.20 <= match[sorted_matches[0]] <= 0.8:
                             detection += 1
-
                         # all the other contours will be ignored.
             return detection
 
-        except cv2.error:
+        except cv2.error as e:
+            print(e)
             return detection
 
     def draw_box(self, contour):
@@ -212,43 +213,30 @@ class CollectProcess:
     """
     Collect Process class to harvest data
     """
-    def __init__(self, templates, fast, br, bf, *args, directory='data', path='', df_path=''):
+    def __init__(self, *args, *kwargs):
         """
         Constructor for CollectProcess class
 
-        :param templates:
-        :param fast:
-        :param br:
-        :param bf:
         :param args:
-        :param directory:
-        :param path:
-        :param df_path:
         """
-        self.__templates = templates
-        self.__fast = fast
-        self.__br = br
-        self.__bf = bf
+        self.__fast = cv2.FastFeatureDetector_create(threshold=50, nonmaxSuppression=50)
+        self.__br = cv2.BRISK_create()
+        self.__bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+
+        self.__templates = make_templates('images/templates/CT/', self.__fast, self.__br)
+
         self.__modes = args
-        self.__path = path + directory
 
-        if not os.path.exists(self.__path):
-            os.mkdir(self.__path)
+        self.__dp = DataPath()
 
-        if os.listdir(self.__path):
-            index = sorted([int(f.split('data_')[1]) for f in os.listdir(self.__path)], reverse=True)[0] + 1
-        else:
-            index = 0
-        try:
-            self.__dir = self.__path + '/data_{:d}'.format(index)
-            self.__df_out = df_path + 'df_{:d}.csv'.format(index)
+        self.__file_index = self.__dp.get_index('collected')
+        self.__dir = os.path.join(self.__dp.collected, str(self.__file_index))
+        os.mkdir(self.__dir)
 
-            os.mkdir(self.__dir)
-        except OSError:
-            raise OSError("Path is not valid")
-        
         self.__index = 0
-        self.__df = pd.DataFrame(columns = ('detections', 'intensity', 'fast_kp', 'process_time'))
+
+        col_names = ('detections', 'intensity', 'fast_kp', 'process_time')
+        self.__df = pd.DataFrame(columns=col_names)
 
     def info(self):
         if self.__df.empty:
@@ -260,10 +248,9 @@ class CollectProcess:
                    "Detection count: {:d}\n"
                    "Empty samples: {:d}\n"
                    "Detection samples: {:d}\n".format(
-                       self.__index, 0, 0, 0
-                   ))
+                       self.__index, 0, 0, 0))
 
-    def collect_from_screen(self, width, heigth, windowed=True, time_out = 1):
+    def collect_from_screen(self, width, heigth, windowed=True, time_out=1):
 
         self.__time_out = time_out
 
@@ -296,7 +283,10 @@ class CollectProcess:
 
         print(self.info())
         if not self.__df.empty:
-            self.__df.to_csv(self.__df_out)
+            csv_name = 'process_{:d}.csv'.format(self.__file_index)
+            self.__df.to_csv(os.path.join(self.__dp.dataframe, csv_name))
+        else:
+            shutil.rmtree(self.__dir)
 
     def collect_from_video(self, path, frame_limit):
 
@@ -322,6 +312,8 @@ class CollectProcess:
                 ret, frame = cap.read()
                 process = self.analyse_frame(frame)
 
+        #TODO saving the data part.
+
     def analyse_frame(self, image):
 
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
@@ -340,10 +332,10 @@ class CollectProcess:
             # Save the data into packet for further use
             packet = {'image':image, 'detections':process.detection_data}
 
-            file_name = self.__dir + "/{:d}.pickle".format(self.__index)
+            file_name = os.path.join(self.__dir, "{:d}.pickle".format(self.__index))
             with open(file_name, 'wb') as file:
                 pickle.dump(packet, file)
-            
+
             self.__index += 1
 
             # Sleep so we don't analyse the same frame multiple times
