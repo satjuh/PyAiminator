@@ -13,14 +13,19 @@ class RegionProbs:
     """
     Contour analyze class emulating the way Matlabs Regionprobs works.
     """
-    def __init__(self, bw, *properties, mode='outer_full',output='struct'):
+    def __init__(
+        self, 
+        bw, 
+        mode='outer_full', 
+        output='struct', 
+        *properties):
         """
         Constructor for Regionprobs
 
         :param bw: bitwise image
-        :param properties: properties to be used
         :param mode: mode for contour detection
-        :param output: output type.
+        :param output: output type, ether Contour objects (struct) or Pandas DataFrame object (table).
+        :param properties: properties to be used
         """
         self.__modes = {'outer_simple':{'retr':'cv2.RETR_EXTERNAL', 'approx':'cv2.CHAIN_APPROX_SIMPLE'},
                         'outer_full':{'retr':'cv2.RETR_EXTERNAL', 'approx':'cv2.CHAIN_APPROX_NONE'},
@@ -47,6 +52,7 @@ class RegionProbs:
 
             # looks up the valid properties
             initial = [c for c in properties if c in property_list]
+
             # if there's none - returns the default
             if len(initial) == 0:
                 initial = ['area', 'centroid', 'bounding_box']
@@ -72,10 +78,10 @@ class RegionProbs:
 
         except KeyError:
             print('Invalid mode.')
-            print('Available modes:\n',  ', '.join(self.__modes.keys()))
+            raise KeyError('Available modes:\n',  ', '.join(self.__modes.keys()))
 
         except ValueError:
-            print("Wrong image format.")
+            raise ValueError("Wrong image format.")
 
     def extract(self):
         """
@@ -132,7 +138,6 @@ class RegionProbs:
             return self.__contours
 
         elif self.__output == self.__outputs[1]:
-            # do a pandas table of the contours.
             data = {}
             for prop in self.__properties:
                 data[prop] = [x[prop] for x in self.__contours]
@@ -140,7 +145,7 @@ class RegionProbs:
             return pd.DataFrame(data)
 
 
-class Contour(RegionProbs):
+class Contour:
     """
     Subclass for Regionprobs, a single contour item.
     """
@@ -296,7 +301,7 @@ class Contour(RegionProbs):
     @property
     def filled_image(self):
         """
-
+        #TODO
         :return:
         """
         pass
@@ -315,7 +320,7 @@ class Contour(RegionProbs):
     @property
     def major_axis_len(self):
         """
-
+        #TODO
         :return:
         """
         if len(self.__cnt) > 5:
@@ -328,7 +333,7 @@ class Contour(RegionProbs):
     @property
     def minor_axis_len(self):
         """
-
+        #TODO
         :return: 
         """
         if len(self.__cnt):
@@ -341,8 +346,9 @@ class Contour(RegionProbs):
     @property
     def orientation(self):
         """
+        A custom orientation function implemented from https://en.wikipedia.org/wiki/Image_moment
 
-        :return:
+        :return: orientation of the contour in degrees
         """
         x, y = self.centroid
         try:
@@ -361,7 +367,7 @@ class Contour(RegionProbs):
     @property
     def perimeter(self):
         """
-
+        #TODO
         :return:
         """
         return cv2.arcLength(self.__cnt, closed=True)
@@ -369,7 +375,7 @@ class Contour(RegionProbs):
     @property
     def pixel_idx_list(self):
         """
-
+        #TODO
         :return:
         """
         pass
@@ -377,7 +383,7 @@ class Contour(RegionProbs):
     @property
     def pixel_list(self):
         """
-
+        #TODO
         :return:
         """
         return self.__cnt
@@ -385,7 +391,7 @@ class Contour(RegionProbs):
     @property
     def solidity(self):
         """
-
+        #TODO
         :return:
         """
         return float(self.area) / self.convex_area
