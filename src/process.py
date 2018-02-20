@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from PIL import ImageGrab
 
-import src.utils.norm as norm
+from src.utils.norm import normalize_image
 from src.paths import DataPath
 from src.regionprobs import RegionProbs as rp
 from src.templates import make_templates
@@ -24,8 +24,9 @@ class ImageProcess:
         templates, 
         fast_detector, 
         brisk_detector, 
-        bf_detector, 
-        *args):
+        bf_detector,
+        *args,
+        **kwargs):
         """
         Constructor for ImageProcess object.
 
@@ -36,7 +37,7 @@ class ImageProcess:
         :param bf_detector: cv2 BruteForce feature matcher
         """
         super().__setattr__('__dict__', {})
-        self.__dict__['image'] = image
+        self.image = image
 
         self.__templates = templates
         self.__fast = fast_detector
@@ -44,6 +45,7 @@ class ImageProcess:
         self.__bf = bf_detector
         self.__detected = 0
         self.__modes = args
+        self.__kwargs = kwargs
         self.__MAX_EUCLIDEAN = math.sqrt(195075)
 
         self.process_image()
@@ -51,26 +53,31 @@ class ImageProcess:
 
     def process_image(self):
 
-        self.__norm = norm.normalize_image(self.image)
+        norm = normalize_image(self.image)
+        self.__norm = norm
 
-        self.__gray = cv2.cvtColor(self.__norm, cv2.COLOR_RGB2GRAY)
+        gray = cv2.cvtColor(self.__norm, cv2.COLOR_RGB2GRAY)
+        self.__gray = gray
 
-        self.__blurred = cv2.medianBlur(self.__gray, 11)
+        blurred1 = cv2.medianBlur(self.__gray, 11)
+        self.__blurred = blurred1
 
         kernel = np.ones((130,130), np.uint8)
-        opening = cv2.morphologyEx(self.__blurred, cv2.MORPH_BLACKHAT, kernel)
+        opening1 = cv2.morphologyEx(self.__blurred, cv2.MORPH_BLACKHAT, kernel)
 
-        threshold = cv2.inRange(opening, 100, 170)
-        masked = cv2.bitwise_and(self.__blurred, threshold)
+        threshold1 = cv2.inRange(opening1, 100, 170)
+        masked1 = cv2.bitwise_and(self.__blurred, threshold1)
 
-        opening = cv2.morphologyEx(masked, cv2.MORPH_TOPHAT, kernel)
-        blurred = cv2.GaussianBlur(opening, (15,15), 3)
+        opening2 = cv2.morphologyEx(masked1, cv2.MORPH_TOPHAT, kernel)
+        blurred2 = cv2.GaussianBlur(opening2, (15,15), 3)
 
-        threshold = cv2.inRange(blurred, 5,130)
-        masked = cv2.bitwise_and(self.__blurred, threshold)
+        threshold2 = cv2.inRange(blurred2, 5,130)
+        #masked2 = cv2.bitwise_and(self.__blurred, threshold2)
 
-        self.__bitwise = threshold
-        self.__dict__['debug'] = threshold
+        self.__bw = threshold2
+
+        if 'debug' in self.__kwargs:
+            self.test = eval(self.__kwargs['debug'])
 
     def __getattr__(self, key):
         """
@@ -96,11 +103,11 @@ class ImageProcess:
         """
         Analyses the image contours
         """
-        contours = rp(self.__bitwise).get_properties()
-        self.__dict__['detections'] = [x for x in contours if self.process_contour(x) == 1]
+        contours = rp(self.__bw).get_properties()
+        self.detections = [x for x in contours if self.process_contour(x) == 1]
 
         if 'collect' in self.__modes:
-            self.__dict__['detection_data'] = np.array([x.image(self.image) for x in self.detections])
+            self.detection_data = np.array([x.image(self.image) for x in self.detections])
 
         if 'draw' in self.__modes:
             for detection in self.detections:
@@ -115,10 +122,8 @@ class ImageProcess:
         """
         try:
             detection = 0
-            # takes the Area of the contour 
+
             area = contour.area
-            # takes the aspect ratio
-            aspect_ratio = contour.aspect_ratio
             # roughly cuts out the biggest and smallest areas
             if 10000 > area > 500:
 
@@ -126,8 +131,8 @@ class ImageProcess:
                 match = {}
                 cnt = contour.cnt
                 x, y, w, h = contour.bounding_box
-                # draws a new masked image based on contour.
 
+                # draws a new masked image based on contour.
                 mask = np.zeros(self.__gray.shape, np.uint8)
                 cv2.drawContours(mask, [cnt], 0,255, -1)
 
@@ -139,7 +144,7 @@ class ImageProcess:
                 if len(kp) > 35:
 
                     for template in self.__templates:
-
+                        aspect_ratio = contour.aspect_ratio
                         angle = abs(contour.orientation)
                         # compare the contours values against each templates values
                         ret = cv2.matchShapes(template.cnt, cnt, 1, 0.0)
@@ -213,19 +218,28 @@ class CollectProcess:
     """
     Collect Process class to harvest data
     """
-    def __init__(self, *args, *kwargs):
+    def __init__(self, *args, **kwargs):
         """
-        Constructor for CollectProcess class
+        Constructor for CollectProcess class.
+        Initialize the fast, brisk and bf detectors. Loads the templates data and
+        create the directory for collection.
 
         :param args:
+        :param kwargs:
         """
         self.__fast = cv2.FastFeatureDetector_create(threshold=50, nonmaxSuppression=50)
         self.__br = cv2.BRISK_create()
         self.__bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
-        self.__templates = make_templates('images/templates/CT/', self.__fast, self.__br)
+        try:
+            model_type = kwargs['model_type']
+        except KeyError:
+            model_type = 'CT'
+
+        self.__templates = make_templates(model_type, self.__fast, self.__br)
 
         self.__modes = args
+        self.__kwargs = kwargs
 
         self.__dp = DataPath()
 
@@ -242,13 +256,18 @@ class CollectProcess:
         if self.__df.empty:
             return "\nError! No data was collected"
         else:
-            print(self.__df)
+            det_count = sum(self.__df['detections'].tolist())
+            mean_inten = np.mean(self.__df['intensity'].tolist())
+            mean_time = np.mean(self.__df['process_time'].tolist())
             return("\nProcess completed\n\n"
                    "Collected total of {:d} samples\n"
                    "Detection count: {:d}\n"
-                   "Empty samples: {:d}\n"
-                   "Detection samples: {:d}\n".format(
-                       self.__index, 0, 0, 0))
+                   "Average intensity: {:.5f}\n"
+                   "Average time: {:.5f}\n".format(
+                       self.__index,
+                       det_count,
+                       mean_inten,
+                       mean_time))
 
     def collect_from_screen(self, width, heigth, windowed=True, time_out=1):
 
@@ -280,6 +299,9 @@ class CollectProcess:
                 screen = np.array(ImageGrab.grab(bbox=(0,padding,width,heigth)))
                 screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
                 process = self.analyse_frame(screen)
+                if 'lim' in self.__kwargs:
+                    if self.__index >= self.__kwargs['lim']:
+                        break
 
         print(self.info())
         if not self.__df.empty:
@@ -288,9 +310,10 @@ class CollectProcess:
         else:
             shutil.rmtree(self.__dir)
 
-    def collect_from_video(self, path, frame_limit):
-
-        if not os.path.exists(path):
+    def collect_from_video(self, file, frame_limit):
+        """
+        """
+        if not os.path.exists(os.path.join(self.__dp.video, file)):
             raise OSError
 
         # Open the video file
@@ -315,7 +338,7 @@ class CollectProcess:
         #TODO saving the data part.
 
     def analyse_frame(self, image):
-
+        
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         intensity = cv2.mean(gray)[0]
         kp = self.__fast.detect(gray, None)
