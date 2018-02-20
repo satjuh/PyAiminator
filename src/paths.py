@@ -3,10 +3,10 @@ import os
 
 #TODO tests
 class DataPath:
+    """A simple interface class for easier data paths. Uses paths.json as source."""
 
     def __init__(self):
-        """
-        """
+
         super().__setattr__('__dict__', {})
         self.base = ['images','video','root_data']
 
@@ -55,16 +55,15 @@ class DataPath:
             super().__setattr__(key, value)
 
     def check_valid(self, paths):
-
+        """Checks if the path is valid."""
         d = {}
         for key in paths:
             if key in self.base:
                 d[key] = paths[key]
-
         return d
 
     def create_if_not_exist(self, paths):
-
+        """Creates the directories if not already exist."""
         for key in paths:
             try:
                 if not os.path.exists(paths[key]):
@@ -77,6 +76,7 @@ class DataPath:
         return paths
 
     def get_index(self, key, name='.'):
+        """Returns the new index of given file/folder."""
         index = 0
         if os.listdir(self.__dict__[key]):
             indexes = sorted([int(f.split(name)[0]) for f in os.listdir(self.__dict__[key])], reverse=True)
@@ -88,6 +88,8 @@ class DataPath:
 class DefaultPath:
 
     def __init__(self, initial={}):
+        """Initialize the base."""
+
         super().__setattr__('__dict__', {})
 
         if not initial:
@@ -99,14 +101,18 @@ class DefaultPath:
                 self.__dict__[key] = initial[key]
 
     def sub_paths(self):
+        """Add list of subpaths to base."""
+
         sub_dirs = [
             ('data', 'root_data'),
             ('collected', 'data'),
             ('dataframes', 'data'),
             ('combined', 'data'),
             ('templates', 'images'),
-            ('processed', 'video')
+            ('processed', 'video'),
+            ('examples', 'images')
         ]
+
         for sub_path in sub_dirs:
             self.__dict__[sub_path[0]] = os.path.join(self.__dict__[sub_path[1]], sub_path[0])
 
@@ -131,4 +137,5 @@ class DefaultPath:
             super().__setattr__(key, value)
 
     def as_dict(self):
+        """Return the paths as dict."""
         return self.__dict__
