@@ -2,9 +2,8 @@ import argparse
 import sys
 import warnings
 
-import cv2
-
 from examples.screen_demo import live_demo
+from examples.show_steps import steps
 from examples.static_images import samples
 from src.judge import Judge
 from src.paths import DataPath
@@ -20,7 +19,7 @@ def collect(mode, w=800, h=600, lim=None):
 
     print(w, h)
 
-    c = CollectProcess('debug')
+    c = CollectProcess('debug', lim=lim)
 
     if mode == 'video':
         c.collect_from_video()
@@ -30,7 +29,6 @@ def collect(mode, w=800, h=600, lim=None):
 
 def judge(clf):
 
-    print(clf)
     j = Judge()
 
     if clf == 'tensorflow':
@@ -52,8 +50,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--demo', help='Demo the process module. Available modes: live, samples')
-    parser.add_argument('--collect', help='Collect using method: screen, video')
+    parser.add_argument('-example', help='Example image listed in images/examples/', type=int, default=0)
 
+    parser.add_argument('--collect', help='Collect using method: screen, video')
     parser.add_argument('-width', help='Screen width for collect process', type=int, default=800)
     parser.add_argument('-height', help='Screen height for collect process', type=int, default=600)
 
@@ -66,7 +65,9 @@ if __name__ == '__main__':
             if args.demo == 'live':
                 live_demo()
             elif args.demo == 'samples':
-                samples('images/examples/')
+                samples()
+            elif args.demo == 'steps':
+                steps(args.example)
             if args.collect:
                 collect(args.collect, w=args.width, h=args.height)
             if args.judge:
