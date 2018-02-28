@@ -4,8 +4,9 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.regionprobs import RegionProbs as rp
 import src.utils.norm as norm
+from src.paths import DataPath
+from src.regionprobs import RegionProbs as rp
 
 
 class Template:
@@ -19,8 +20,8 @@ class Template:
         :param brisk_detector:
         """
         super().__setattr__('__dict__', {})
-        self.__dict__['name'] = name
-        self.__dict__['img'] = img
+        self.name = name
+        self.img = img
 
         self.__fast = fast_detector
         self.__br = brisk_detector
@@ -68,21 +69,22 @@ class Template:
         contours = sorted(contours, key=lambda x: x.area, reverse=True)
         contour = contours[0]
 
-        self.__dict__['des'] = des
-        self.__dict__['cnt'] = contour.cnt
-        self.__dict__['ar'] = contour.aspect_ratio
-        self.__dict__['mean'] = cv2.mean(norm_img, mask=mask)
-        self.__dict__['intensity'] = cv2.mean(gray, mask=mask)
-        self.__dict__['angle'] = contour.orientation
+        self.des = des
+        self.cnt = contour.cnt
+        self.ar = contour.aspect_ratio
+        self.mean = cv2.mean(norm_img, mask=mask)
+        self.intensity = cv2.mean(gray, mask=mask)
+        self.angle = contour.orientation
 
 
-def make_templates(path, fast, br):
+def make_templates(model_type, fast, br):
     
-
+    p = DataPath()
+    path = os.path.join(p.templates, model_type)
     templates = []
     for x in os.listdir(path):
         name = x.split(".")[0]
-        original = cv2.imread(path + x, 1)
+        original = cv2.imread(os.path.join(path, x), 1)
         templates.append(Template(original, name, fast, br))
 
     return templates

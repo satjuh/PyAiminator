@@ -7,23 +7,52 @@ I approached the object detection as a concept by trying to detect character mod
 in a classic game of Counter-Strike 1.6. Most of the image processing is done with 
 OpenCV.
 
-The detection process is compared and evaluated using Tensorflow object detection API [link](https://github.com/tensorflow/models/tree/master/research/object_detection).
 
-## Strategy:
+### Detection Strategy:
 * Filtering and thresholding
 * Analysing contours
 * Matching features
 * Matching color space
 
-## Examples
-![Test 1](/images/test/test1.jpg)
 
-In a simple situations the detection works fine.
+### Evaluation:
 
-![Test 2](/images/test/test2.jpg)
+The detection process is compared and evaluated using Tensorflow object detection API [link](https://github.com/tensorflow/models/tree/master/research/object_detection). Already trained model can detect a variety of different objects but I only used it to evaluate how many humans or different objects associated with Counter-Strike models can I detect.
 
-When models overlap it causes problems
+Accepted objects:
+- Human
+- Backpack
 
-![Test 3](/images/test/test3.jpg)
+Tensorflow threshold: 0.4
 
-Different map and similiar colored background caused problems
+
+### Requirements
+
+Basic usage for collecting and using Brute Force detection:
+- Python 3.6.4
+
+(Optional)
+- Python 64-bit
+- Tensorflow [object_detection](https://github.com/tensorflow/models/tree/master/research/object_detection) for judge.
+- [RPNplut](https://github.com/huangshiyu13/RPNplus)
+
+
+### Examples
+
+Example usage:
+
+1. List of all available commands
+```
+$ python aiminator.py -h
+```
+
+2. Run a live demo
+```
+$ python aiminator.py --demo live
+```
+
+3. Display ImageProcess steps
+```
+$ python aiminator.py --demo steps
+```
+

@@ -1,73 +1,77 @@
 import os
 import pickle
+import warnings
 from time import time
 
 import cv2
-import numpy as np
-import tensorflow as tf
-import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from PIL import ImageGrab
 
+from src.paths import DataPath
 from src.process import ImageProcess as ip
-import object_detection.utils.visualization_utils as vis_util
+
+try:
+    import tensorflow as tf
+except ImportError:
+    warnings.warn('Tensorflow not found')
 
 
 class Judge:
 
-    def __init__(self, images_path, df_path):
+    def __init__(self):
         """
         Constructor for Judge class
-
-        :param detection:
-        :param categories:
         """
-        if os.path.exists(images_path) or os.path.exists(df_path):
-            self.__files = images_path
-            self.__out = df_path
-        else:
-            raise OSError("File not exist")
-
-        self.__df = pd.read_csv(df_path)
+        self.__dp  = DataPath()
 
     def evaluate_tensorflow(self, detection, categories):
 
         self.__detection = detection
         self.__categories = categories
         self.__accepted = ["person", "backpack"]
-        self.__new_df = pd.DataFrame(columns = ('correct_tf', 'incorrect_tf', 'tf_detections', 'tf_time'))
+
+        df_columns = ('correct_tf', 'incorrect_tf', 'tf_detections', 'tf_time')
+        name = 'tensorflow'
 
         with detection.as_default():
             with tf.Session(graph=detection) as sess:
-                # Process all the files in selected directory
-                for file in os.listdir(self.__files):
-                    print(file)
-                    index = int(file.split(".")[0])
+                # Process all the files in directories
+                for directory in os.listdir(self.__dp.collected):
+                    result_file = os.path.join(self.__dp.dataframes, '{:s}_{:d}.csv'.format(name, directory))
+                    if not os.path.exists(result_file):
+                        df = pd.DataFrame(columns = df_columns)
+                        files = os.path.join(self.__dp.collected, directory)
+                        for file in os.listdir(files):
 
-                    with open(self.__files+file, 'rb') as f:
-                        data = pickle.load(f)
-                        image = data['image']
-                        detections = data['detections']
+                            index = int(file.split(".")[0])
 
-                    tf_time = time()
-                    evaluate_image = self.tensorflow_analyse(image, sess)
-                    tf_time = time() - tf_time
+                            with open(os.path.join(files, file), 'rb') as f:
+                                data = pickle.load(f)
+                                image = data['image']
+                                detections = data['detections']
 
-                    expected = len(detections)
-                    evaluated = sum([1 for x in detections if self.tensorflow_analyse(x, sess) == 1])
+                            tf_time = time()
+                            evaluate_image = self.tensorflow_analyse(image, sess)
+                            tf_time = time() - tf_time
 
-                    correct = evaluated
-                    incorrect = expected - evaluated
+                            expected = len(detections)
+                            evaluated = sum([1 for x in detections if self.tensorflow_analyse(x, sess) == 1])
 
-                    new_row = {'correct_tf':correct, 'incorrect_tf':incorrect, 'tf_detections':evaluate_image, 'tf_time':tf_time}
+                            correct = evaluated
+                            incorrect = expected - evaluated
 
-                    self.__new_df.loc[index] = new_row
-                    print(self.__new_df)
+                            new_row = {
+                                'correct_tf':correct, 
+                                'incorrect_tf':incorrect, 
+                                'tf_detections':evaluate_image, 
+                                'tf_time':tf_time
+                            }
 
-                # Once the process is done, merge the new data to old df
-                self.__df = pd.concat([self.__df, self.__new_df], axis=1)
-                out = self.__out.split('.')[0] + '_tf.csv'
-                self.__df.to_csv(out)
+                            df.loc[index] = new_row
+
+                        df.to_csv(result_file)
 
     def tensorflow_analyse(self, image, sess):
 
@@ -94,21 +98,23 @@ class Judge:
 
         return sum(detections)
 
-
     def human_evaluation(self):
-        
-        for file in os.listdir(self.__files):
 
-            print(file)
+        for directory in os.listdir(self.__dp.collected):
 
-            with open(file, 'rb') as f:
-                data = pickle.load(file)
-                image = data['image']
-                detections = data['detections']
+            files = os.path.join(self.__dp.collected, directory)
+            for file in os.listdir(files):
 
-            #TODO show the image
-            expected = input("How many humanoids is in the picture?(0-n): ")
-            actual = sum([self.human_process(x) for x in detections])
+                print(file)
+
+                with open(file, 'rb') as f:
+                    data = pickle.load(file)
+                    image = data['image']
+                    detections = data['detections']
+
+                #TODO show the image
+                expected = input("How many humanoids is in the picture?(0-n): ")
+                actual = sum([self.human_process(x) for x in detections])
 
     def human_process(self, image):
 
