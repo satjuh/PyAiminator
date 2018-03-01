@@ -21,7 +21,7 @@ def live_demo():
     from src.templates import make_templates
 
     # initialize the data of the templates
-    ct_models = make_templates('images/templates/CT/', fast, br)
+    ct_models = make_templates('CT',fast, br)
     start = time()
     while True:
 

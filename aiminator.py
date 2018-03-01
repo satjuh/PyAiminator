@@ -8,7 +8,7 @@ from examples.static_images import samples
 from src.judge import Judge
 from src.paths import DataPath
 from src.process import CollectProcess
-
+from src.rpn_model import RPNplus
 try:
     from src.setup import setup_tensor
 except ImportError:
@@ -35,6 +35,11 @@ def judge(clf):
         dg, ci = setup.setup_tensor()
         j.evaluate_tensorflow(dg, ci)
 
+    elif clf == 'RPN':
+        RPNplus()
+
+
+
 
 def main():
     """
@@ -56,7 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('-width', help='Screen width for collect process', type=int, default=800)
     parser.add_argument('-height', help='Screen height for collect process', type=int, default=600)
 
-    parser.add_argument('--judge', help='Judge the collected data using: tensorflow, human')
+    parser.add_argument('--judge', help='Judge the collected data using: tensorflow, human or RPNplus model')
 
     args = parser.parse_args()
 
