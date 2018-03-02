@@ -17,7 +17,7 @@ OpenCV.
 
 ### Evaluation:
 
-The detection process is compared and evaluated using Tensorflow object detection API [link](https://github.com/tensorflow/models/tree/master/research/object_detection). Already trained model can detect a variety of different objects but I only used it to evaluate how many humans or different objects associated with Counter-Strike models can I detect.
+The detection process is compared and evaluated using Tensorflow object detection API [link](https://github.com/tensorflow/models/tree/master/research/object_detection). Already trained model can detect a variety of different objects but I only used it to evaluate how many humans or different objects associated with Counter-Strike models can I detect. Another evalution method was using the model RPNplus by Shiyu Huang [link](https://github.com/huangshiyu13/RPNplus) and some of his code to make the model work in the way we needed it to work.
 
 Accepted objects:
 - Human
@@ -30,11 +30,12 @@ Tensorflow threshold: 0.4
 
 Basic usage for collecting and using Brute Force detection:
 - Python 3.6.4
+- [RPNplus models](https://github.com/huangshiyu13/RPNplus)
 
 (Optional)
 - Python 64-bit
 - Tensorflow [object_detection](https://github.com/tensorflow/models/tree/master/research/object_detection) for judge.
-- [RPNplut](https://github.com/huangshiyu13/RPNplus)
+
 
 
 ### Examples
