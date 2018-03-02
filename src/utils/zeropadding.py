@@ -6,6 +6,9 @@ import os
 from src.paths import DataPath
 import pickle
 
+"""
+    Pads the image with zeros that it can be fed to the network
+"""
 def zeropadding(image, image_height, image_width):
     width, height = image.size
     
@@ -21,26 +24,5 @@ def zeropadding(image, image_height, image_width):
     elif height > image_height or width > image_width:
         image.thumbnail((image_height, image_width))
         zeropadding(image, image_height, image_width)
-    
-if __name__ == '__main__':
-    image_height = 720
-    image_width = 960
-    dirname = 'images'
-    results = [];
-    images = []
-    Dpath = DataPath()
-    
-    images = []
-    for directory in os.listdir(Dpath.collected):
-        files = os.path.join(Dpath.collected, directory)
-        for file in os.listdir(files):
-            with open(os.path.join(files, file), 'rb') as f:
-                data = pickle.load(f)
-                image = data['image']
-                detections = data['detections']
-            print("test")
-            images.append(image)
 
-    #imshow(images[0])
-    
   
