@@ -39,7 +39,7 @@ class Judge:
             with tf.Session(graph=detection) as sess:
                 # Process all the files in directories
                 for directory in os.listdir(self.__dp.collected):
-                    result_file = os.path.join(self.__dp.dataframes, '{:s}_{:d}.csv'.format(name, directory))
+                    result_file = os.path.join(self.__dp.dataframes, '{:s}_{:}.csv'.format(name, directory))
                     if not os.path.exists(result_file):
                         df = pd.DataFrame(columns = df_columns)
                         files = os.path.join(self.__dp.collected, directory)

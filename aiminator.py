@@ -32,7 +32,7 @@ def judge(clf):
     j = Judge()
 
     if clf == 'tensorflow':
-        dg, ci = setup.setup_tensor()
+        dg, ci = setup_tensor()
         j.evaluate_tensorflow(dg, ci)
 
     elif clf == 'RPN':

@@ -247,7 +247,7 @@ def RPNplus():
                     new_row = {
                         'correct_RPN' : correct,
                         'incorrect_RPN' : incorrect,
-                        'RPN_detections' : detections,
+                        'RPN_detections' : detected,
                         'RPN_time' : c
                     }
 
