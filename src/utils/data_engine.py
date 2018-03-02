@@ -3,7 +3,7 @@ from sklearn.utils.extmath import cartesian
 import numpy as np
 from PIL import Image
 
-import NMS
+import src.NMS as NMS
 import os
 
 wandhG = [[100.0, 100.0], [300.0, 300.0], [500.0, 500.0],

@@ -218,7 +218,7 @@ def RPNplus():
         df_columns = ('correct_RPN', 'incorrect_RPN', 'RPN_detections', 'RPN_time')
         number = 0
         for directory in os.listdir(path.collected):
-            result_file = os.path.join(path.dataframes, '{:s}_{:d}.csv'.format(name, number))
+            result_file = os.path.join(path.dataframes, '{:s}_{:}.csv'.format(name, directory))
             if not os.path.exists(result_file):
                 df = pd.DataFrame(columns = df_columns)
                 files = os.path.join(path.collected, directory)
